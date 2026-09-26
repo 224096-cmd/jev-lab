@@ -8,3 +8,5 @@ docs/models/*/encoder.onnx.fp32
 data/jevbench_ja/*.jsonl
 data/*/train.jsonl
 logs/
+docs/models/*/model_fp32.onnx
+docs/models/*/*.pre.onnx

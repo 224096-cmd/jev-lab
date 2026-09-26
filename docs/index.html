@@ -44,6 +44,15 @@
 <tr><td>osint_ja（育成中）</td><td>Play で収集し人手ラベル</td><td>Choice + Score</td><td>本ラボ独自の情報収集データ</td></tr></table>
 <p class="muted small">各 family は in-domain（train/val/test）と OOD（未見の質問文・否定形）を持つ。ライセンスは <code>config/datasets.yaml</code> に記載。</p>
 </div>
+<div class="card">
+<h2>比較する Jev 級モデル</h2>
+<table><tr><th>モデル</th><th>形</th><th>大きさ</th><th>言語</th><th>どこで動く</th></tr>
+<tr><td>jev_ja_30m（自作）</td><td>[STATE][Q][OPT] 1 系列 + MLP ヘッド v2</td><td>37M / 47MB</td><td>ja</td><td>スマホ・PC ブラウザ、端末内学習可</td></tr>
+<tr><td>argos1111/modernbert-ja-310m-jev</td><td>cross-encoder（質問+状況 × 候補）</td><td>310M / 316MB</td><td>ja</td><td>PC ブラウザ・PC</td></tr>
+<tr><td>open-jev-deberta-v3-large（Kotoba）</td><td>open-jev 形</td><td>435M / 480MB</td><td>en</td><td>PC ブラウザ（HF から）・PC</td></tr>
+<tr><td>Tiny-Jev / Jev-Style-0.8B / Laya</td><td>LLM ベースまたは独自</td><td>0.4〜0.8B</td><td>en / 多言語</td><td>PC</td></tr></table>
+<p class="muted small">Jev 級 = state + 型付き質問 → 1 forward で較正済み分布、生成しない。NLI ゼロショットや埋め込みモデルは比較対象にしない。</p>
+</div>
 </main>
 <script>
 (async()=>{try{const idx=await (await fetch('results/index.json')).json();const rows=[];for(const f of idx.files){try{const d=await (await fetch('results/'+f)).json();for(const r of d.results)rows.push({file:f,data:d.data,...r})}catch{}}

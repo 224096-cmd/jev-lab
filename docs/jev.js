@@ -3,9 +3,11 @@
    - decide() は答えだけでなく、途中量（トークン列・スパン・u/v ベクトル・logit・類似度）も返す
    - span / marker 両方の読み出しを 1 forward で計算し、温度 T はページ側で再適用できる
    Python 側 jev_lab/adapters/jev_ja.py と同じ手順 */
-import { PreTrainedTokenizer, pipeline, env as hfenv } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
+import { PreTrainedTokenizer, AutoTokenizer, AutoModel, Tensor as HfTensor, env as hfenv } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
 import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.mjs";
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
+ort.env.wasm.proxy = true;                                   // 推論を Worker で実行し UI を止めない
+ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 1);
 
 /* ---------------- IndexedDB ---------------- */
 export const store = {
@@ -222,54 +224,69 @@ export function metrics(rows, latencies) {
 }
 
 
-/* ================= 既存モデル（Hugging Face、Transformers.js 経由） =================
-   models/registry.json にコピペで追加できる。kind:
-     "hf-zeroshot" : zero-shot-classification（NLI 系）。選択肢を仮説にし entailment を softmax → native 分布
-     "hf-embed"    : feature-extraction（文埋め込み）。state と「質問: 選択肢」の cos × scale → native 分布
-   重みは HF Hub から取得（Transformers.js のキャッシュに保存、2 回目からオフライン可） */
-export class HfZeroShot {
-  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "hf-zeroshot"; this.probability_kind = "native"; }
+/* ================= 既存の Jev 級モデル =================
+   kind:
+     "crossenc"      : 日本語 Jev cross-encoder（例 argos1111/modernbert-ja-310m-jev）。docs/models/<name>/ に ONNX（int8、分割）を置く。
+                       「質問: …\n状況: …」と候補のペアを 1 本の系列で読み 1 スコア → 候補間 softmax。Noul は候補 ["true","false"]
+     "open-jev-onnx" : Kotoba Labs open-jev の Transformers.js 版（HF から取得）。state + 全質問を 1 系列、(質問,選択肢) ペアごとに logit */
+export class CrossEncJev {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "crossenc"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
   async load(onProgress = () => {}) {
-    hfenv.allowRemoteModels = true; hfenv.allowLocalModels = false; hfenv.useBrowserCache = true;
-    this.pipe = await pipeline("zero-shot-classification", this.cfg.hf_id, { dtype: this.cfg.dtype || "q8", progress_callback: p => { if (p.status === "progress") onProgress(`${p.file} ${(p.loaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB`); } });
-    hfenv.allowLocalModels = true; this.backend = "wasm"; onProgress(""); return this;
+    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const txt = b => new TextDecoder().decode(b);
+    this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
+    this.tok = new PreTrainedTokenizer(JSON.parse(txt(await getf("tokenizer.json"))), JSON.parse(txt(await getf("tokenizer_config.json"))));
+    const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
+    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
+    this.backend = "wasm"; this.padId = this.tok.model?.tokens_to_ids?.get(this.tok.pad_token) ?? 3; onProgress(""); return this;
   }
+  ids(t) { return Array.from(this.tok(t, { add_special_tokens: false }).input_ids.data, Number); }
   async decide(state, questions, context, opts = {}) {
-    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const answers = [];
-    for (const q of questions) { const labels = JevJa.optionsOf(q); const tpl = this.cfg.hypothesis_template || "{}"; const hyps = labels.map(l => (q.instructions ? q.instructions + " " : "") + tpl.replace("{}", l));
-      const r = await this.pipe(full, hyps, { multi_label: false }); const sc = new Map(r.labels.map((l, i) => [l, r.scores[i]])); let p = hyps.map(h => sc.get(h) ?? 0); const T = opts.T || 1; if (T !== 1) { const z = p.map(x => Math.log(x + 1e-9)); p = softmax(z, T); } const s2 = p.reduce((a, b) => a + b, 0); p = p.map(x => x / s2);
-      answers.push(mkAnswer(q, labels, p, p.map(x => Math.log(x + 1e-9)))); }
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const answers = []; const { bos_id: B, eos_id: E, max_length: ML } = this.cfg;
+    for (const [qi, q] of questions.entries()) { opts.onProgress?.(`質問 ${qi + 1}/${questions.length} を判定中（${this.name}）`);
+      const labels = JevJa.optionsOf(q); const cands = q.type === "noul" ? this.cfg.noul_options : labels; const a = this.ids(this.cfg.prompt.replace("{question}", q.instructions).replace("{state}", full));
+      const seqs = cands.map(c => { const b = this.ids(c); const A = a.slice(0, Math.max(8, ML - b.length - 4)); return [B, ...A, E, B, ...b, E]; }); const L = Math.max(...seqs.map(s => s.length));
+      const ids = new BigInt64Array(seqs.length * L), mask = new BigInt64Array(seqs.length * L); seqs.forEach((s, i) => s.forEach((x, j) => { ids[i * L + j] = BigInt(x); mask[i * L + j] = 1n; })); for (let i = 0; i < seqs.length; i++) for (let j = seqs[i].length; j < L; j++) ids[i * L + j] = BigInt(this.padId);
+      const out = await this.sess.run({ input_ids: new ort.Tensor("int64", ids, [seqs.length, L]), attention_mask: new ort.Tensor("int64", mask, [seqs.length, L]) }); const z = Array.from(out.logits.data).filter((_, i) => out.logits.dims[1] ? i % out.logits.dims[1] === 0 : true);
+      const p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z));
+    }
     return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: null, answers };
   }
 }
-export class HfEmbed {
-  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "hf-embed"; this.probability_kind = "native"; }
+export class OpenJevOnnx {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "open-jev-onnx"; this.probability_kind = "native"; }
   async load(onProgress = () => {}) {
-    hfenv.allowRemoteModels = true; hfenv.allowLocalModels = false; hfenv.useBrowserCache = true;
-    this.pipe = await pipeline("feature-extraction", this.cfg.hf_id, { dtype: this.cfg.dtype || "q8", progress_callback: p => { if (p.status === "progress") onProgress(`${p.file} ${(p.loaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB`); } });
-    hfenv.allowLocalModels = true; this.backend = "wasm"; onProgress(""); return this;
+    hfenv.allowRemoteModels = true; hfenv.allowLocalModels = false; hfenv.useBrowserCache = true; const gpu = !!navigator.gpu; const dtype = gpu ? (this.cfg.dtype_webgpu || "q4f16") : (this.cfg.dtype || "q4");
+    const pc = p => { if (p.status === "progress") onProgress(`${p.file.split("/").pop()} ${(p.loaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB`); };
+    this.tok = await AutoTokenizer.from_pretrained(this.cfg.hf_id, { progress_callback: pc }); this.model = await AutoModel.from_pretrained(this.cfg.hf_id, { dtype, device: gpu ? "webgpu" : "wasm", progress_callback: pc });
+    hfenv.allowLocalModels = true; this.backend = gpu ? "webgpu" : "wasm"; const e = t => Array.from(this.tok(t, { add_special_tokens: false }).input_ids.data, Number); [this.CLS, this.SEP, this.STATE, this.Q, this.OPT] = ["[CLS]", "[SEP]", "[STATE]", "[Q]", "[OPT]"].map(m => e(m)[0]); this.enc = e; onProgress(""); return this;
   }
-  async embed(text) { const out = await this.pipe((this.cfg.prefix || "") + text, { pooling: "mean", normalize: true }); return Float32Array.from(out.data); }
   async decide(state, questions, context, opts = {}) {
-    const t0 = performance.now(); const full = (!context || !context.length) ? state : context.join("\n") + "\n" + state; const s = await this.embed(full); const answers = [];
-    for (const q of questions) { const labels = JevJa.optionsOf(q); const V = []; for (const l of labels) V.push(await this.embed(`${q.instructions}: ${l}`)); const scale = opts.cosScale || this.cfg.scale || 20; const z = V.map(v => cosine(s, v) * scale); const p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z)); }
-    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: null, answers };
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : context.join("\n") + "\n" + state;
+    const tokens = [this.CLS, this.STATE, ...this.enc(full).slice(0, 256)]; const seg = tokens.map(() => -1); const pairQ = [], pairOpt = [], groups = []; const totalPairs = questions.reduce((n, q) => n + JevJa.optionsOf(q).length, 0);
+    questions.forEach((q, qi) => { const text = this.enc(q.instructions); tokens.push(this.Q, ...text); seg.push(-1, ...text.map(() => totalPairs + qi)); const opts_ = q.type === "noul" ? ["no", "yes"] : JevJa.optionsOf(q); groups.push(opts_.map(o => { const ot = this.enc(o); tokens.push(this.OPT, ...ot); seg.push(-1, ...ot.map(() => pairOpt.length)); pairQ.push(totalPairs + qi); pairOpt.push(pairOpt.length); return pairOpt.length - 1; })); });
+    tokens.push(this.SEP); seg.push(-1); const i64 = (v, dims) => new HfTensor("int64", BigInt64Array.from(v, BigInt), dims);
+    const { logits } = await this.model({ input_ids: i64(tokens, [1, tokens.length]), attention_mask: i64(tokens.map(() => 1), [1, tokens.length]), seg: i64(seg, [1, seg.length]), pair_q: i64(pairQ, [1, pairQ.length]), pair_opt: i64(pairOpt, [1, pairOpt.length]) });
+    const scores = Array.from(logits.to("float32").data); const T = (opts.T || 1) * (this.cfg.temperature || 1.05);
+    const answers = questions.map((q, i) => { const labels = JevJa.optionsOf(q); let z = groups[i].map(p => scores[p]); if (q.type === "noul") z = [z[1], z[0]]; /* [no,yes] → [yes,no] */ const p = softmax(z, T); return mkAnswer(q, labels, p, z); });
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: tokens.length, answers };
   }
 }
 function mkAnswer(q, labels, p, z) { const am = p.indexOf(Math.max(...p)); const a = { id: q.id, type: q.type, distribution: { labels, probabilities: p }, logits: z, confidence: p[am] }; if (q.type === "choice") a.choice = labels[am]; else if (q.type === "score") { const vals = q.values || labels.map((_, i) => i); a.score = p.reduce((s, pi, i) => s + pi * vals[i], 0); a.level = labels[am]; } else { a.p_yes = p[0]; a.noul = p[0] >= 0.5; } return a; }
+export async function isStoredAny(name, files) { const ks = new Set(await store.keys()); return files.every(f => ks.has(`${name}/${f}`)); }
 
 /* registry + index からモデル一覧を作り、名前でロードする */
 export async function listAllModels() {
   const out = [];
-  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: "jev_ja", group: "JEV-JA（端末内・学習可）" }); } catch { }
-  try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.kind === "hf-zeroshot" ? "既存モデル: ゼロショット NLI（HF）" : "既存モデル: 文埋め込み（HF）" }); } catch { }
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・端末内）" : "JEV-JA（自作・端末内・学習可）" }); } catch { }
+  try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.group || "既存 Jev（HF から取得）" }); } catch { }
   try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
   return out;
 }
 export async function loadModelByName(name, onProgress) {
   const all = await listAllModels(); const e = all.find(m => m.name === name); if (!e) throw new Error("unknown model: " + name);
   if (e.kind === "jev_ja") return new JevJa(name).load(onProgress);
-  if (e.kind === "hf-zeroshot") return new HfZeroShot(e).load(onProgress);
-  if (e.kind === "hf-embed") return new HfEmbed(e).load(onProgress);
+  if (e.kind === "crossenc") return new CrossEncJev(e).load(onProgress);
+  if (e.kind === "open-jev-onnx") return new OpenJevOnnx(e).load(onProgress);
   throw new Error("unsupported kind: " + e.kind);
 }

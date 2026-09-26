@@ -5,6 +5,16 @@
       "size_mb": 47.0,
       "trained": true,
       "backbone": "sbintuitions/modernbert-ja-30m"
+    },
+    {
+      "name": "jev_ja_310m_argos",
+      "kind": "crossenc",
+      "size_mb": 316.4,
+      "trained": true,
+      "backbone": "argos1111/modernbert-ja-310m-jev",
+      "language": "ja",
+      "license": "CC BY-SA 4.0",
+      "note": "既存の日本語 Jev（ModernBERT-Ja-310m cross-encoder、JGLUE 等で検証精度 0.90）。int8 316MB、PC ブラウザ向け"
     }
   ]
 }

@@ -32,7 +32,7 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 </style>
 </head>
 <body>
-<header><h1>JEV Lab</h1><nav><a href="index.html">概要・結果</a><a href="play.html" class="on">情報収集・判断</a><a href="theory.html">仕組み</a></nav></header>
+<header><h1>JEV Lab <span class="muted small" id="ver"></span></h1><nav><a href="index.html">概要・結果</a><a href="play.html" class="on">情報収集・判断</a><a href="theory.html">仕組み</a></nav></header>
 
 <div class="mbar">
  <select id="model"></select>
@@ -46,7 +46,7 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <div class="groups">
  <button data-g="use" class="on">使う</button><button data-g="research">研究</button><button data-g="learn">学ぶ・設定</button>
 </div>
-<div class="tabs" id="tabs-use"><button data-t="osint" class="on">情報収集</button><button data-t="chat">JEV チャット</button><button data-t="play">判断 Playground</button><button data-t="tmpl">用途テンプレ</button></div>
+<div class="tabs" id="tabs-use"><button data-t="osint" class="on">情報収集</button><button data-t="tools">調査ツール</button><button data-t="chat">JEV チャット</button><button data-t="play">判断 Playground</button><button data-t="tmpl">用途テンプレ</button></div>
 <div class="tabs hidden" id="tabs-research"><button data-t="verify">検証</button><button data-t="batch">バッチ評価</button><button data-t="improve">改良（端末内学習）</button><button data-t="notes">実験ノート</button></div>
 <div class="tabs hidden" id="tabs-learn"><button data-t="viz">仕組み・可視化</button><button data-t="models">モデルを追加</button><button data-t="settings">保存・設定</button></div>
 
@@ -57,8 +57,8 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <div class="card">
 <details><summary>利用方針（必読）</summary><p class="note small">運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。対象は<b>出来事・地域・話題</b>。個人の特定・追跡・プロファイリングには使わない。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。</p></details>
 <div class="row"><div>
-<label>プリセット（調べたいことの例）</label><select id="o-preset"><option value="">— 選ぶと下が埋まる —</option></select>
-<label>調べたいこと（出来事・地名・話題）</label><input id="o-q" value="津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
+<label>調べたいこと（キーワード。カンマ区切りで複数。Enter で収集）</label><input id="o-q" value="" placeholder="例: Jev typed decision model, open-jev　／　津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
+<div class="grid3"><div><label>プリセット（例を入れる）</label><select id="o-preset"><option value="">— 選ぶと埋まる —</option></select></div><div><label>履歴</label><select id="o-hist"><option value="">— 過去の検索 —</option></select></div><div><label>&nbsp;</label><label style="display:inline"><input type="checkbox" id="o-auto" checked style="width:auto"> 収集後に自動で JEV 整理</label></div></div>
 <label>情報源</label><div id="o-src"></div>
 <div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
 <p><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名→座標→標高）</label> <label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
@@ -69,7 +69,25 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <p><button class="primary" id="o-run">1. 収集する</button> <button id="o-judge" disabled>2. JEV で整理・照合</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-md" disabled>Markdown レポート</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>3. 人手ラベル → JSONL</button></p>
 <p class="muted small" id="o-diff"></p>
 <div id="o-stats"></div>
+<p><label>結果を絞り込む（本文・出典に含む語。ハイライト）</label><input id="o-filter" placeholder="例: 警報, 避難"> <label style="display:inline"><input type="checkbox" id="o-only-new" style="width:auto"> 新着のみ</label> <label style="display:inline"><input type="checkbox" id="o-only-official" style="width:auto"> 公的・報道のみ</label></p>
 <div id="o-out"></div>
+</div>
+</section>
+
+<!-- ================= 調査ツール ================= -->
+<section id="t-tools" class="hidden">
+<div class="card"><p class="note small">動画で紹介される「情報収集ツール」のうち、<b>公開情報を受動的に読むだけ</b>の手法をブラウザで再現。対象はサイト・ドメイン・出来事。個人の特定・追跡には使わない。Shodan・HIBP など API キーが必要なものと、ユーザー名の横断照会（個人対象）は実装しない。</p></div>
+<div class="row">
+<div class="card"><h2>① 検索演算子（dork）ビルダー</h2><p class="muted small">Google 等の検索演算子で「公開されている文書」を狙って探す。URL を組み立てて開くだけで、自動巡回はしない。</p>
+<label>プリセット</label><select id="d-preset"><option value="">—</option></select>
+<div class="row"><div><label>キーワード</label><input id="d-q" placeholder="例: 避難所 開設状況"></div><div><label>site:</label><input id="d-site" placeholder="例: city.tsu.lg.jp"></div><div><label>filetype:</label><input id="d-ft" placeholder="pdf / xlsx / csv"></div><div><label>intitle:</label><input id="d-title"></div><div><label>inurl:</label><input id="d-url"></div><div><label>除外語（カンマ）</label><input id="d-ex"></div><div><label>after:（YYYY-MM-DD）</label><input id="d-after"></div><div><label>before:</label><input id="d-before"></div></div>
+<p><label style="display:inline"><input type="checkbox" id="d-exact" style="width:auto"> キーワードを完全一致（"…"）</label> <button class="primary" id="d-build">組み立てる</button></p><div id="d-out"></div></div>
+<div class="card"><h2>② ドメインの素性（DNS・WHOIS/RDAP・Wayback・証明書ログ）</h2><p class="muted small">「そのサイトはいつからあるか／誰が運用しているか／どんなホストがあるか」。結果は根拠として情報収集に渡せる。</p>
+<label>ドメインまたは URL</label><input id="t-domain" placeholder="例: jma.go.jp"><p><button class="primary" id="t-domain-run">調べる</button> <button id="t-domain-ctx" disabled>→ 根拠に追加</button></p><div id="t-domain-out"></div></div>
+<div class="card"><h2>③ 画像のメタデータ（EXIF / GPS）</h2><p class="muted small">自分の端末で選んだ画像を<b>端末内で</b>読む（送信しない）。SNS 経由の画像は通常メタデータが消えている＝「消えていないなら一次投稿の可能性」という手がかり。</p>
+<input type="file" id="t-exif" accept="image/*"><div id="t-exif-out"></div></div>
+<div class="card"><h2>④ 逆画像検索・横断検索リンク</h2><p class="muted small">画像 URL やキーワードを各サービスで開く。使い回し画像（別の災害・別の年の写真）の発見に。</p>
+<label>画像の URL</label><input id="t-img" placeholder="https://…/photo.jpg"><p><button id="t-img-run">リンクを作る</button></p><div id="t-img-out"></div></div>
 </div>
 </section>
 
@@ -78,14 +96,15 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <div class="card">
 <p class="muted small">文章を送ると、いま設定されている質問（Playground の質問セット。既定は情報収集用 6 問）で JEV が判断して返す。JEV は生成しないので、返答は「確率つきの判定＋定型の説明」。コマンド：<code>/q choice id 質問 | 選択肢1 | 選択肢2</code>、<code>/q score id 質問 | 低 | 中 | 高</code>、<code>/q noul id 質問</code>、<code>/ctx 根拠文</code>、<code>/osint 調べたいこと</code>（収集して要約）、<code>/preset 名前</code>、<code>/clear</code>、<code>/help</code></p>
 <div class="chat" id="chat"></div>
-<div class="chatin"><textarea id="c-in" placeholder="例：【拡散希望】○○小学校が津波で水没！ / または /osint 津市 大雨"></textarea><button class="primary" id="c-send" disabled>送信</button></div>
+<p><button class="small c-quick" data-q="/qs">いまの質問</button> <button class="small c-quick" data-q="/help">コマンド</button> <button class="small c-quick" data-q="/ctx clear">根拠を消す</button> <button class="small c-quick" data-q="/preset">プリセット一覧</button></p>
+<div class="chatin"><textarea id="c-in" placeholder="文章を入力（Enter で送信、Shift+Enter で改行）。/osint キーワード で収集→整理"></textarea><button class="primary" id="c-send" disabled>送信</button></div>
 </div>
 </section>
 
 <!-- ================= 判断 Playground ================= -->
 <section id="t-play" class="hidden">
 <div class="row"><div class="card">
-<label>用途テンプレ</label><select id="p-tmpl"></select>
+<label>用途テンプレ（選ぶと例が入る。既定は空）</label><select id="p-tmpl"><option value="">— 空のまま —</option></select>
 <label>state（状況・本文）</label><textarea id="p-state"></textarea>
 <label>context（根拠。1 行 1 件）</label><textarea id="p-ctx" style="min-height:60px"></textarea>
 <label>questions <span class="muted">（＋で追加）</span></label>
@@ -177,13 +196,16 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <section id="t-models" class="hidden">
 <div class="card">
 <h2>使えるモデル</h2><div id="m-list"></div>
+<h2>Hugging Face で Jev 級モデルを探す</h2>
+<p><input id="m-search" value="jev" style="width:60%"> <button id="m-search-run">検索</button> <span class="muted small">HF API（公開）。transformers.js / onnx タグがあるものはブラウザ実行の候補。それ以外は PC（config/models.yaml）用</span></p>
+<div id="m-search-out"></div>
 <h2>Hugging Face のモデルを追加（コピペ）</h2>
 <p class="muted small">Transformers.js 対応（ONNX 同梱）のリポを指定。<b>hf-zeroshot</b> は NLI 系（zero-shot-classification）、<b>hf-embed</b> は文埋め込み（feature-extraction）。追加後は上のモデル欄に出る。PC 専用（GLiNER2 / open-jev / LLM）は <code>config/models.yaml</code>。</p>
-<textarea id="m-json" style="min-height:120px;font-family:monospace;font-size:12px">{ "name": "my_model", "kind": "hf-zeroshot", "hf_id": "Xenova/nli-deberta-v3-xsmall", "dtype": "q8", "language": "en", "hypothesis_template": "This example is {}.", "note": "" }</textarea>
+<p class="muted small">対応する kind：<b>open-jev-onnx</b>（open-jev 形の Transformers.js 版。入力 input_ids/attention_mask/seg/pair_q/pair_opt）、<b>crossenc</b>（日本語 Jev cross-encoder。PC で <code>export_crossenc.py --hf 〈id〉 --name 〈name〉</code> を実行して docs/models/ に置き、push してから登録）。Jev 級でないモデル（NLI・埋め込み・LLM）はこのラボの比較対象にしない。</p>
+<textarea id="m-json" style="min-height:120px;font-family:monospace;font-size:12px">{ "name": "open_jev_laya_multi", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "language": "en", "note": "" }</textarea>
 <p><button class="primary" id="m-add">追加</button> <button id="m-clear">追加分を全削除</button></p>
-<details><summary>例（コピペ用）</summary><pre class="small">{ "name": "xenova_mdeberta_xnli", "kind": "hf-zeroshot", "hf_id": "Xenova/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7", "dtype": "q8", "language": "multi", "hypothesis_template": "この文は「{}」である。" }
-{ "name": "e5_small", "kind": "hf-embed", "hf_id": "Xenova/multilingual-e5-small", "dtype": "q8", "language": "multi", "prefix": "query: ", "scale": 30 }
-{ "name": "minilm_multi", "kind": "hf-embed", "hf_id": "Xenova/paraphrase-multilingual-MiniLM-L12-v2", "dtype": "q8", "language": "multi", "scale": 20 }</pre></details>
+<details><summary>例（コピペ用）</summary><pre class="small">{ "name": "open_jev_deberta_v3_large", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "temperature": 1.05, "language": "en" }
+{ "name": "jev_ja_310m_argos", "kind": "crossenc", "language": "ja" }   ← docs/models/jev_ja_310m_argos/ を export_crossenc.py で作った場合（index.json に自動登録される）</pre></details>
 </div>
 </section>
 
@@ -193,6 +215,7 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
 <p class="muted small" id="storage"></p>
 <p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
+<h2>設定のバックアップ</h2><p><button id="s-backup">質問セット・重み・追加モデル・実験ノートを JSON で保存</button> <input type="file" id="s-restore" accept=".json" style="width:auto"></p>
 <h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label></p>
 <h2>端末情報</h2><div id="s-env" class="kv"></div>
 </div>

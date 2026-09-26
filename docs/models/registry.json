@@ -1,9 +1,6 @@
 {
-  "_readme": "既存モデルを追加する場所。1 行コピペで増やせる。kind は hf-zeroshot（NLI 系 zero-shot-classification）か hf-embed（文埋め込み）。hf_id は Transformers.js 対応（ONNX 同梱）のリポ。dtype は q8 / fp32 等。",
+  "_readme": "既存の Jev 級モデルを登録する場所（Jev 級 = state + 型付き質問 → 1 forward で較正済み分布。生成しない）。kind は open-jev-onnx（HF の Transformers.js 版 open-jev）か crossenc（docs/models/<name>/ に export_crossenc.py で置いたもの）。PC 専用モデル（Tiny-Jev, Jev-Style, Laya など）は config/models.yaml。",
   "models": [
-    { "name": "xenova_mdeberta_xnli", "kind": "hf-zeroshot", "hf_id": "Xenova/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7", "dtype": "q8", "language": "multi", "size_mb": 280, "hypothesis_template": "この文は「{}」である。", "note": "多言語 NLI ゼロショット（MIT）。大きいので PC ブラウザ向け" },
-    { "name": "xenova_nli_deberta_xsmall", "kind": "hf-zeroshot", "hf_id": "Xenova/nli-deberta-v3-xsmall", "dtype": "q8", "language": "en", "size_mb": 25, "hypothesis_template": "This example is {}.", "note": "英語 NLI 22M。fast_decisions / fever_en 用" },
-    { "name": "xenova_multilingual_e5_small", "kind": "hf-embed", "hf_id": "Xenova/multilingual-e5-small", "dtype": "q8", "language": "multi", "size_mb": 120, "prefix": "query: ", "scale": 30, "note": "多言語文埋め込み（MIT）。cos ベースライン" },
-    { "name": "xenova_paraphrase_minilm_multi", "kind": "hf-embed", "hf_id": "Xenova/paraphrase-multilingual-MiniLM-L12-v2", "dtype": "q8", "language": "multi", "size_mb": 60, "scale": 20, "note": "軽量多言語埋め込み（Apache 2.0）" }
+    { "name": "open_jev_deberta_v3_large", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "temperature": 1.05, "language": "en", "size_mb": 480, "license": "Apache-2.0", "note": "Kotoba Labs の Jev 形参照実装（DeBERTa-v3-large 435M）。英語。PC ブラウザ向け（WebGPU なら q4f16 350MB）", "paper": "https://github.com/kotoba-lang/typed-decisions" }
   ]
 }

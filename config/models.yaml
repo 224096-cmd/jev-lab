@@ -98,6 +98,28 @@ models:
     language: ja
     note: Kotoba の「DeBERTa-large が最良」を日本語で検証する用。PC/LAN 専用
 
+  # ---- 既存の Jev 級モデル（HF、PC で実行）----------------------------------------
+  argos_ja_310m:                                  # 日本語 Jev cross-encoder（検証精度 0.90、CC BY-SA 4.0）
+    adapter: crossenc_hf
+    hf_id: argos1111/modernbert-ja-310m-jev
+    prompt: "質問: {question}\n状況: {state}"
+    noul_options: ["true", "false"]
+    max_length: 512
+    device: auto
+    language: ja
+  tiny_jev_0_6b:                                  # Qwen3-0.6B ベース、英語（Apache-2.0）
+    adapter: tiny_jev
+    hf_id: lostargon/Tiny-Jev
+    device: auto
+    language: en
+  jev_style_0_8b:                                 # Qwen3.5-0.8B ベース、多言語（日本語含む、Apache-2.0）。pip install "jev-style[torch]"
+    adapter: jev_style
+    hf_id: chaoliangUNSW/Jev-Style-0.8B-Decision-v3
+    device: auto
+    language: multi
+  # Laya（convaiinnovations/laya-typed-decisions 421M / laya-multilingual 322M, Apache-2.0）は独自 API のため未実装。
+  # open-jev-deberta-v3-large は open_jev_deberta（上）。
+
   # ---- 既存の小型 Jev 級モデルの改良ルート ----------------------------------
   # (a) 多言語 DeBERTa をバックボーンに JEV-JA ヘッドを載せる（Kotoba の「DeBERTa が最良」を多言語で）
   jev_ja_mdeberta_base:

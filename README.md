@@ -100,7 +100,8 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 
 | 群 | タブ | 何ができるか |
 |---|---|---|
-| 使う | **情報収集** | プリセット（Jev／AI／ONNX／災害／噂の検証／教育）→ 収集 → JEV 整理 → 信頼性（重み編集）→ 類似群・地理照合・新着 → 証跡 JSON / CSV / **Markdown レポート** → 人手ラベル → JSONL |
+| 使う | **情報収集** | キーワード（カンマで複数、Enter で実行）→ 収集 → 自動で JEV 整理 → 信頼性 → 絞り込み・ハイライト・新着/公的のみ → 各行「＋根拠」→ 証跡 / CSV / Markdown → 人手ラベル |
+| 使う | **調査ツール** | dork ビルダー・ドメインの素性（DNS/RDAP/Wayback/CT）・EXIF/GPS・逆画像検索。結果は根拠として情報収集へ |
 | 使う | **JEV チャット** | 文章を送ると現在の質問セットで判定して返す。`/q` で質問追加、`/ctx` で根拠、`/osint` で収集→整理、`/preset` |
 | 使う | 判断 Playground | 質問ビルダー（保存セット）、T／span-marker／head-cos 切替、実験ノート保存 |
 | 使う | 用途テンプレ | 6 用途の見本と複数テキスト一括判断 |
@@ -133,6 +134,47 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 - in-domain では学習ヘッドがゼロショットの 2 倍。OOD では**逆転**し較正も崩れる ＝ 質問文を読まずに slot を暗記している（英語での Kotoba の報告を日本語で再現）。これが P1-f（拡張・否定形学習）の出発点
 - 端末内学習（Play「改良」）: jnli/jcola/wrime 96 件・6 epoch・14 秒で val 33.3% → 41.7%、Brier 0.712 → 0.658
 - 端末推論: 1 判断 26 ms（PC CPU）、スマホ実機 167 ms
+
+## 3-A. 「jev_ja_30m は Jev なのか」と、既存 Jev モデルの扱い
+
+**Jev 級（typed-decision model）の定義**：状況（state）＋型付き質問（Choice / Score / Noul）を 1 回の forward で読み、各質問について選択肢上の**較正済み確率分布**を返す。生成しない。TypeSafe AI の製品 Jev がこの形の原点で、open-jev（Kotoba Labs）、Laya（Convai）、Tiny-Jev、Jev-Style、modernbert-ja-310m-jev などのコミュニティ実装が同じ形を再現している。
+**jev_ja_30m はこの定義を満たす**（同じ入力列設計 [STATE]/[Q]/[OPT]、1 forward、native 分布、温度較正）。TypeSafe の Jev 本体とは無関係の自作実装で、モデルカード上の他の "open-jev" 系と同じ位置づけ。NLI ゼロショットや文埋め込み（v0.4 で試験的に載せたもの）は Jev 級ではないので v0.5 で外した。
+
+**このラボで比較する既存 Jev 級モデル**（HF Hub を "jev / open-jev / typed-decision" で検索し、小型・高性能・ライセンス明記のものを選定）
+
+| モデル | 形 | 大きさ | 言語 | ライセンス | どこで動く | 備考 |
+|---|---|---|---|---|---|---|
+| **jev_ja_30m**（自作） | [STATE][Q][OPT] 1 系列 ＋ MLP ヘッド | 37M / int8 47MB | ja | MIT(backbone) | 端末内（スマホ可）・学習可 | 本研究の対象 |
+| **argos1111/modernbert-ja-310m-jev** | 「質問: …\n状況: …」×候補 の cross-encoder | 310M / int8 316MB | ja | CC BY-SA 4.0 | 端末内（PC ブラウザ）・PC | JGLUE 系で検証精度 0.90。同じデータで学習された**最重要の比較対象** |
+| **onnx-community/open-jev-deberta-v3-large-ONNX** | open-jev 形（seg / pair_q / pair_opt） | 435M / q4 480MB | en | Apache-2.0 | 端末内（PC ブラウザ、HF から取得） | Kotoba の参照実装 |
+| lostargon/Tiny-Jev | Qwen3-0.6B ベース、System-One API | 0.6B | en | Apache-2.0 | PC | `tiny_jev` アダプタ |
+| chaoliangUNSW/Jev-Style-0.8B-Decision-v3 | Qwen3.5-0.8B ベース | 0.8B / 4bit 0.53GB | 多言語（ja 含む） | Apache-2.0 | PC（`pip install "jev-style[torch]"`） | Banking77 68%、JevBench 64% |
+| convaiinnovations/laya-typed-decisions / laya-multilingual | ModernBERT-large / mmBERT | 421M / 322M | en / 100+ | Apache-2.0 | PC（独自 API、未実装） | fast-decisions 系で Jev 公表値超え |
+| fukayatti0/jev-japanese-judgment-v2 | LFM2.5-1.2B-JP ＋ ヘッド | 1.2B | ja | LFM（要確認） | PC（独自コード） | JNLI 85.8%、JSTS 58% |
+
+**最初の比較（docs/bench/jevbench_ja_small.jsonl、270 state、in-domain + OOD 混在）**
+
+| モデル | 精度 | Brier | ECE | p50 ms（PC CPU） | 大きさ |
+|---|---|---|---|---|---|
+| argos_ja_310m（既存） | **54.6%** | 0.607 | 0.167 | 985 | 316MB |
+| jev_ja_30m（自作 v2） | 40.8% | 0.680 | 0.130 | **27** | 47MB |
+| jev_ja_30m_cos（ゼロショット） | 31.5% | 0.653 | **0.047** | 25 | 47MB |
+
+→ 既存の 310M は精度で 14 pt 上、自作 30m は 36 倍速く 7 分の 1 の大きさ。JevBench 流の「5 軸で見せる」比較がそのまま成立する。
+
+## 3-B. 調査ツール（動画の手法のうち合法・受動的なもの）
+
+| 手法 | 実装 | 情報源 |
+|---|---|---|
+| 検索演算子（Google dorks） | URL を組み立てて開く（自動巡回しない）。site: / filetype: / intitle: / inurl: / 除外 / 期間 | Google・Bing・DDG・Yahoo!JAPAN・Google ニュース・X 検索・YouTube・Wikipedia・Wayback |
+| Wayback Machine | 年ごとの最寄りスナップショット、最古の記録 | archive.org availability API |
+| DNS | A / AAAA / MX / NS / TXT / CNAME | Google Public DNS（DoH） |
+| WHOIS / RDAP | 登録日・期限・レジストラ・ステータス（.jp は JPRS WHOIS へ案内） | rdap.org |
+| サブドメイン | 証明書透明性ログからホスト名を列挙（受動的） | crt.sh |
+| ドメインの素性まとめ | 上記を 1 つの「根拠」にして情報収集の照合へ | — |
+| EXIF / GPS | 自分の画像を端末内で読む（送信しない）。撮影日時・機種・座標→地図 | ブラウザ内 |
+| 逆画像検索 | 画像 URL を Google Lens / Bing / Yandex / TinEye で開く | リンク |
+| 実装しないもの | Shodan・HIBP（API キー・個人情報）、ユーザー名の横断照会（個人対象）、ログインが必要な自動操作、robots.txt 無視の収集 | — |
 
 ## 5. 検証済みのこと
 
