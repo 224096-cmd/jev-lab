@@ -1,0 +1,38 @@
+{
+  "name": "jevlet_33m",
+  "kind": "jevlet",
+  "hf_id": "NAME0x0/Jevlet",
+  "backbone": "BAAI/bge-small-en-v1.5",
+  "hidden": 384,
+  "topology": "block_bidir",
+  "option_pool": "mean",
+  "max_state_tokens": 224,
+  "max_question_tokens": 64,
+  "max_option_tokens": 40,
+  "max_packed_len": 1024,
+  "max_position": 512,
+  "position_offset": 0,
+  "temperatures": {
+    "choice": 1.4180543422698975,
+    "default": 1.1358089447021484,
+    "noul": 1.0306620597839355
+  },
+  "special_ids": {
+    "cls": 101,
+    "sep": 102,
+    "pad": 0,
+    "unk": 100,
+    "state": 30522,
+    "question": 30523,
+    "option": 30524,
+    "end_option": 30525,
+    "decide": 30526
+  },
+  "int8": true,
+  "size_mb": 35.6,
+  "onnx_vs_pt_maxdiff": 0.0037750721459139935,
+  "language": "en",
+  "license": "MIT",
+  "trained": true,
+  "note": "Jevlet v6（bge-small 33.5M、英語）。共有 state＋質問分岐を 1 系列に詰め、[DECIDE] と各選択肢の pointer head で決める。自作 30m と同規模の既存 Jev。スマホ可"
+}

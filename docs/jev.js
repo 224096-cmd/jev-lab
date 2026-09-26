@@ -318,13 +318,46 @@ export class LayaJev {
     return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: L, answers };
   }
 }
+
+/* "jevlet": Jevlet v6（bge-small 33.5M、英語、MIT）。docs/models/<name>/ に export_jevlet.py で置いた int8 ONNX（約 34 MB、スマホ可）。
+   系列 [CLS][STATE] state | [QUESTION] q [OPTION] o [END_OPTION]… [DECIDE] | …（jevlet.pretrained.PretrainedCollator と同じ packing、block_bidir）
+   分岐は state と自分だけを見る 2 次元マスク、位置は state の末尾から再開。logits = (K·mean(option)) · (Q·decide) / √w、種類別温度 */
+export class JevletJev {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "jevlet"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
+  async load(onProgress = () => {}) {
+    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const txt = b => new TextDecoder().decode(b);
+    this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
+    this.tok = new PreTrainedTokenizer(JSON.parse(txt(await getf("tokenizer.json"))), JSON.parse(txt(await getf("tokenizer_config.json"))));
+    const hb = new Float32Array(await getf("head.bin")); const w = this.cfg.hidden; this.Wq = hb.slice(0, w * w); this.Wk = hb.slice(w * w, 2 * w * w);
+    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("encoder.onnx")), { executionProviders: ["wasm"] }); this.backend = "wasm"; onProgress(""); return this;
+  }
+  ids(t) { return Array.from(this.tok(t, { add_special_tokens: false }).input_ids.data, Number); }
+  pack(state, questions) {
+    const S = this.cfg.special_ids, C = this.cfg; const enc = this.ids(state); const qs = questions.map(q => ({ q, kind: q.type, body: this.ids(q.instructions).slice(0, C.max_question_tokens), opts: (q.type === "noul" ? ["True", "False"] : JevJa.optionsOf(q)).map(o => { const b = this.ids(String(o)).slice(0, C.max_option_tokens); return b.length ? b : [S.unk]; }) }));
+    const extents = qs.map(x => 1 + x.body.length + x.opts.reduce((s, o) => s + o.length + 2, 0) + 1); const room = C.max_position - 1 - 1 - Math.max(0, ...extents);
+    const ids = [S.cls, S.state, ...enc.slice(0, Math.max(0, Math.min(C.max_state_tokens, room)))]; const stateLen = ids.length; const branch = new Array(stateLen).fill(-1), pos = ids.map((_, i) => i); const recs = [];
+    qs.forEach((x, j) => { const offset = ids.length; const bt = [S.question, ...x.body]; const bp = bt.map((_, i) => stateLen + i); const spans = []; for (const o of x.opts) { const seg = [S.option, ...o, S.end_option]; const start = offset + bt.length + 1; spans.push([start, start + o.length]); const fp = stateLen + bt.length; for (let i = 0; i < seg.length; i++) bp.push(fp + i); bt.push(...seg); } bt.push(S.decide); bp.push(stateLen + bt.length - 1); if (Math.max(...bp) >= C.max_position) throw new Error("入力が長すぎます（Jevlet の位置上限）"); ids.push(...bt); pos.push(...bp); for (let i = 0; i < bt.length; i++) branch.push(j); recs.push({ kind: x.kind, spans, decide: ids.length - 1, labels: JevJa.optionsOf(x.q) }); });
+    if (ids.length > C.max_packed_len) throw new Error("入力が長すぎます（max_packed_len）");
+    return { ids, pos, branch, recs };
+  }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[Context]\n" + context.map(c => "- " + c).join("\n") + "\n[State]\n" + state; const { ids, pos, branch, recs } = this.pack(full, questions); const L = ids.length, w = this.cfg.hidden;
+    const mask = new Uint8Array(L * L); for (let q = 0; q < L; q++) for (let k = 0; k < L; k++) { const qs = branch[q] === -1, ks = branch[k] === -1; mask[q * L + k] = (qs && ks) || (!qs && (ks || branch[k] === branch[q])) ? 1 : 0; }
+    const i64 = a => BigInt64Array.from(a, x => BigInt(x)); opts.onProgress?.(`${questions.length} 問を 1 回で判定中（${this.name}, ${L} tok）`);
+    const H = (await this.sess.run({ input_ids: new ort.Tensor("int64", i64(ids), [1, L]), attention_mask: new ort.Tensor("bool", mask, [1, 1, L, L]), position_ids: new ort.Tensor("int64", i64(pos.map(p => p + (this.cfg.position_offset || 0))), [1, L]), token_type_ids: new ort.Tensor("int64", new BigInt64Array(L), [1, L]) })).last_hidden_state.data;
+    const row = t => H.subarray(t * w, (t + 1) * w); const mv = (W, v) => { const o = new Float32Array(w); for (let i = 0; i < w; i++) { let s = 0; const off = i * w; for (let j = 0; j < w; j++) s += W[off + j] * v[j]; o[i] = s; } return o; };
+    const temps = this.cfg.temperatures || {}; const answers = recs.map((r, i) => { const qd = mv(this.Wq, row(r.decide)); const z = r.spans.map(([s0, s1]) => { const m = new Float32Array(w); for (let t = s0; t < s1; t++) { const h = row(t); for (let j = 0; j < w; j++) m[j] += h[j]; } for (let j = 0; j < w; j++) m[j] /= Math.max(1, s1 - s0); const k = mv(this.Wk, m); let d = 0; for (let j = 0; j < w; j++) d += k[j] * qd[j]; return d / Math.sqrt(w); }); const T = (temps[r.kind] ?? temps.default ?? 1) * (opts.T || 1); const p = softmax(z, T); return mkAnswer(questions[i], r.labels, p, z); });
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: L, answers };
+  }
+}
 function mkAnswer(q, labels, p, z) { const am = p.indexOf(Math.max(...p)); const a = { id: q.id, type: q.type, distribution: { labels, probabilities: p }, logits: z, confidence: p[am] }; if (q.type === "choice") a.choice = labels[am]; else if (q.type === "score") { const vals = q.values || labels.map((_, i) => i); a.score = p.reduce((s, pi, i) => s + pi * vals[i], 0); a.level = labels[am]; } else { a.p_yes = p[0]; a.noul = p[0] >= 0.5; } return a; }
 export async function isStoredAny(name, files) { const ks = new Set(await store.keys()); return files.every(f => ks.has(`${name}/${f}`)); }
 
 /* registry + index からモデル一覧を作り、名前でロードする */
 export async function listAllModels() {
   const out = [];
-  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・PC ブラウザ向け）" : m.kind === "laya" ? "既存 Jev（Laya・多言語・PC ブラウザ向け）" : "JEV-JA（自作・スマホ可・学習可）" }); } catch { }
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・PC ブラウザ向け）" : m.kind === "laya" ? "既存 Jev（Laya・多言語・PC ブラウザ向け）" : m.kind === "jevlet" ? "既存 Jev（Jevlet・英語・スマホ可）" : "JEV-JA（自作・スマホ可・学習可）" }); } catch { }
   try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.group || "既存 Jev（HF から取得）" }); } catch { }
   try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
   return out;
@@ -335,5 +368,6 @@ export async function loadModelByName(name, onProgress) {
   if (e.kind === "crossenc") return new CrossEncJev(e).load(onProgress);
   if (e.kind === "open-jev-onnx") return new OpenJevOnnx(e).load(onProgress);
   if (e.kind === "laya") return new LayaJev(e).load(onProgress);
+  if (e.kind === "jevlet") return new JevletJev(e).load(onProgress);
   throw new Error("unsupported kind: " + e.kind);
 }

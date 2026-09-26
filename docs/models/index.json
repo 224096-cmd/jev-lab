@@ -25,6 +25,16 @@
       "language": "multilingual",
       "license": "Apache-2.0",
       "note": "Laya（Convai Innovations、HF ❤3.8k）。[MASK] 位置の 1 logit を選択肢ごとに読む Jev 級。100+ 言語、context 1024。PC ブラウザ向け"
+    },
+    {
+      "name": "jevlet_33m",
+      "kind": "jevlet",
+      "size_mb": 35.6,
+      "trained": true,
+      "backbone": "BAAI/bge-small-en-v1.5",
+      "language": "en",
+      "license": "MIT",
+      "note": "Jevlet v6（bge-small 33.5M、英語）。共有 state＋質問分岐を 1 系列に詰め、[DECIDE] と各選択肢の pointer head で決める。自作 30m と同規模の既存 Jev。スマホ可"
     }
   ]
 }

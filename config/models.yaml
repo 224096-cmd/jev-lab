@@ -122,6 +122,10 @@ models:
     hf_id: convaiinnovations/laya-multilingual
     language: multi
     note: "[MASK] 位置の 1 logit を選択肢ごとに読む。context 1024。ブラウザ版は export_laya.py"
+  jevlet_33m:                                     # Jevlet v6（bge-small 33.5M、英語、MIT）。自作 30m と同規模の既存 Jev。pip install git+https://github.com/NAME0x0/Jevlet
+    adapter: jevlet
+    hf_id: NAME0x0/Jevlet
+    language: en
   laya_en_421m:                                   # Laya 英語（ModernBERT-large 421M）
     adapter: laya
     hf_id: convaiinnovations/laya
