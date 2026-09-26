@@ -1,0 +1,24 @@
+{
+  "name": "jev_ja_310m_argos",
+  "kind": "crossenc",
+  "hf_id": "argos1111/modernbert-ja-310m-jev",
+  "prompt": "質問: {question}\n状況: {state}",
+  "noul_options": [
+    "true",
+    "false"
+  ],
+  "max_length": 512,
+  "int8": true,
+  "external_data": [
+    "model.onnx_data_0",
+    "model.onnx_data_1",
+    "model.onnx_data_2",
+    "model.onnx_data_3"
+  ],
+  "size_mb": 316.4,
+  "onnx_vs_pt_maxdiff": 3.424023151397705,
+  "cls_id": 6,
+  "sep_id": 4,
+  "eos_id": 2,
+  "bos_id": 1
+}
