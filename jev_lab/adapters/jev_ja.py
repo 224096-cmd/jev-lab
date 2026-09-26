@@ -31,14 +31,21 @@ SPECIAL = ["[STATE]", "[Q]", "[OPT]"]
 
 
 class DecisionHead(nn.Module):
-    def __init__(self, d: int, hidden: int = 512):
+    """v2: u, v をそれぞれ LayerNorm してから [u;v;u⊙v] → MLP。
+    ModernBERT-Ja の隠れ状態はノルムが大きく（|u|≈85）、正規化なしでは tanh が飽和して
+    全選択肢に同じ logit を出す（学習不能）ことを実測したための修正。"""
+    def __init__(self, d: int, hidden: int = 512, norm: bool = True):
         super().__init__()
+        self.norm = norm
+        self.ln_u = nn.LayerNorm(d) if norm else nn.Identity()
+        self.ln_v = nn.LayerNorm(d) if norm else nn.Identity()
         self.mlp = nn.Sequential(nn.Linear(3 * d, hidden), nn.Tanh(), nn.Dropout(0.1), nn.Linear(hidden, 1))
 
     def forward(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         # u: (d,)  v: (K, d)  -> logits (K,)
-        uu = u.unsqueeze(0).expand_as(v)
-        return self.mlp(torch.cat([uu, v, uu * v], dim=-1)).squeeze(-1)
+        un = self.ln_u(u).unsqueeze(0).expand_as(v)
+        vn = self.ln_v(v)
+        return self.mlp(torch.cat([un, vn, un * vn], dim=-1)).squeeze(-1)
 
 
 class JevJaModel(nn.Module):
@@ -108,13 +115,15 @@ class JevJaModel(nn.Module):
         self.enc.save_pretrained(os.path.join(path, "backbone"))
         self.tok.save_pretrained(os.path.join(path, "backbone"))
         torch.save(self.head.state_dict(), os.path.join(path, "head.pt"))
-        json.dump({"pool": self.pool, "temperature": self.temperature, "max_length": self.max_length},
+        json.dump({"pool": self.pool, "temperature": self.temperature, "max_length": self.max_length, "head_norm": self.head.norm},
                   open(os.path.join(path, "jev_ja_config.json"), "w"), ensure_ascii=False, indent=2)
 
     @classmethod
     def load_trained(cls, path: str):
         cfg = json.load(open(os.path.join(path, "jev_ja_config.json")))
         m = cls(os.path.join(path, "backbone"), cfg["pool"], cfg["max_length"])
+        if not cfg.get("head_norm", False):   # v1 チェックポイント（正規化なし）
+            m.head = DecisionHead(m.enc.config.hidden_size, norm=False)
         m.head.load_state_dict(torch.load(os.path.join(path, "head.pt"), map_location="cpu"))
         m.temperature = cfg.get("temperature", 1.0)
         return m

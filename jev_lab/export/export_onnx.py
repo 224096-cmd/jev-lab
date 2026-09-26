@@ -63,6 +63,19 @@ def main():
     torch.onnx.export(m.head, (torch.zeros(d), torch.zeros(3, d)), head_path, input_names=["u", "v"], output_names=["logits"],
                       dynamic_axes={"v": {0: "K"}, "logits": {0: "K"}}, opset_version=17, dynamo=False)
 
+    # --- head.json（ブラウザ内で再学習できるように生の重みも出す）------------
+    sd = {k: v.detach().cpu().float() for k, v in m.head.state_dict().items()}
+    import numpy as np
+    hid = int(sd["mlp.0.weight"].shape[0])
+    parts = []
+    norm = getattr(m.head, "norm", False)
+    if norm:
+        parts += [sd["ln_u.weight"].numpy(), sd["ln_u.bias"].numpy(), sd["ln_v.weight"].numpy(), sd["ln_v.bias"].numpy()]
+    parts += [sd["mlp.0.weight"].flatten().numpy(), sd["mlp.0.bias"].numpy(), sd["mlp.3.weight"].flatten().numpy(), sd["mlp.3.bias"].numpy()]
+    np.concatenate(parts).astype(np.float32).tofile(os.path.join(out, "head.bin"))
+    head_meta = {"d": d, "hidden": hid, "version": 2 if norm else 1, "layout": ("gu,bu,gv,bv," if norm else "") + "W1,b1,w2,b2", "dtype": "float32"}
+    if os.path.exists(os.path.join(out, "head.json")): os.remove(os.path.join(out, "head.json"))
+
     # --- tokenizer / config ---------------------------------------------
     m.tok.save_pretrained(out)
     # Transformers.js が読める tokenizer_config にする（transformers v5 は "TokenizersBackend" と書く）
@@ -70,7 +83,7 @@ def main():
     tc = json.load(open(tc_path, encoding="utf-8"))
     tc["tokenizer_class"] = "PreTrainedTokenizerFast"
     json.dump(tc, open(tc_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    cfg = {"name": a.model, "backbone": ad.cfg.get("backbone"), "pool": m.pool, "temperature": m.temperature,
+    cfg = {"name": a.model, "backbone": ad.cfg.get("backbone"), "pool": m.pool, "temperature": m.temperature, "head": head_meta,
            "max_length": m.max_length, "hidden": d, "trained": ad.trained, "int8": not a.no_int8,
            "special_ids": {"cls": m.tok.cls_token_id, "sep": m.tok.sep_token_id, "unk": m.tok.unk_token_id,
                            **{k.strip("[]").lower(): v for k, v in m.ids.items()}},

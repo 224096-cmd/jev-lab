@@ -1,0 +1,9 @@
+{
+  "_readme": "既存モデルを追加する場所。1 行コピペで増やせる。kind は hf-zeroshot（NLI 系 zero-shot-classification）か hf-embed（文埋め込み）。hf_id は Transformers.js 対応（ONNX 同梱）のリポ。dtype は q8 / fp32 等。",
+  "models": [
+    { "name": "xenova_mdeberta_xnli", "kind": "hf-zeroshot", "hf_id": "Xenova/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7", "dtype": "q8", "language": "multi", "size_mb": 280, "hypothesis_template": "この文は「{}」である。", "note": "多言語 NLI ゼロショット（MIT）。大きいので PC ブラウザ向け" },
+    { "name": "xenova_nli_deberta_xsmall", "kind": "hf-zeroshot", "hf_id": "Xenova/nli-deberta-v3-xsmall", "dtype": "q8", "language": "en", "size_mb": 25, "hypothesis_template": "This example is {}.", "note": "英語 NLI 22M。fast_decisions / fever_en 用" },
+    { "name": "xenova_multilingual_e5_small", "kind": "hf-embed", "hf_id": "Xenova/multilingual-e5-small", "dtype": "q8", "language": "multi", "size_mb": 120, "prefix": "query: ", "scale": 30, "note": "多言語文埋め込み（MIT）。cos ベースライン" },
+    { "name": "xenova_paraphrase_minilm_multi", "kind": "hf-embed", "hf_id": "Xenova/paraphrase-multilingual-MiniLM-L12-v2", "dtype": "q8", "language": "multi", "size_mb": 60, "scale": 20, "note": "軽量多言語埋め込み（Apache 2.0）" }
+  ]
+}

@@ -30,4 +30,5 @@ jev_lab/rag/build.py
 jev_lab/rag/index.py
 jev_lab/train/__init__.py
 jev_lab/train/convert_gliner2.py
+jev_lab/train/train_head.py
 jev_lab/train/train_jev_ja.py

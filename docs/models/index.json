@@ -2,8 +2,8 @@
   "models": [
     {
       "name": "jev_ja_30m",
-      "size_mb": 45.4,
-      "trained": false,
+      "size_mb": 47.0,
+      "trained": true,
       "backbone": "sbintuitions/modernbert-ja-30m"
     }
   ]

@@ -8,6 +8,13 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <style>
+/* ---- レイアウト：上部にモデルバー、2 段ナビ（群 → タブ） ---- */
+.mbar{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mbar select{width:auto;max-width:52vw}.mbar .pill{margin:0}
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:120px;max-width:260px}.prog>i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
+.groups{display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap}.groups button{border-radius:999px}.groups button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.tabs{padding:8px 16px 0;display:flex;gap:6px;flex-wrap:wrap}.tabs button.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc);font-weight:600}
+main{padding:12px 16px}
 .tokstrip{line-height:2;font-size:13px;word-break:break-all}.tk{display:inline-block;padding:0 4px;margin:1px;border-radius:4px;border:1px solid var(--line)}
 .tk.state{background:color-mix(in srgb,var(--acc) 12%,transparent)}.tk[class*=instr]{background:color-mix(in srgb,#b45309 18%,transparent)}.tk[class*=opt]{background:color-mix(in srgb,#15803d 18%,transparent)}
 .tk.cls,.tk.sep,.tk.q,.tk.opt{font-weight:700;border-color:var(--acc)}
@@ -15,153 +22,178 @@
 canvas{max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--line);font-size:12px;margin:2px}
 input[type=range]{width:100%}.note{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
-details summary{cursor:pointer;color:var(--acc)}
+details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b45309}
+/* chat */
+.chat{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding:6px}.msg{max-width:88%;padding:8px 12px;border-radius:12px;border:1px solid var(--line)}
+.msg.me{align-self:flex-end;background:color-mix(in srgb,var(--acc) 14%,transparent)}.msg.bot{align-self:flex-start;background:var(--card)}.msg .bar{margin:2px 0}
+.chatin{display:flex;gap:8px;margin-top:8px}.chatin textarea{min-height:44px;flex:1}
+.stat{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin:4px 6px 4px 0}.stat b{font-size:18px}
+.hidden{display:none}
 </style>
 </head>
 <body>
-<header><h1>JEV Lab</h1>
-<nav><a href="index.html">解説・結果</a><a href="play.html" class="on">Play</a></nav>
-<span class="muted" id="status"></span></header>
+<header><h1>JEV Lab</h1><nav><a href="index.html">概要・結果</a><a href="play.html" class="on">情報収集・判断</a><a href="theory.html">仕組み</a></nav></header>
+
+<div class="mbar">
+ <select id="model"></select>
+ <button class="primary" id="load">読み込む</button>
+ <span class="pill" id="mstate">未ロード</span>
+ <div class="prog"><i id="progbar"></i></div>
+ <span class="muted small" id="status"></span>
+ <span class="small" id="offline"></span>
+</div>
+
+<div class="groups">
+ <button data-g="use" class="on">使う</button><button data-g="research">研究</button><button data-g="learn">学ぶ・設定</button>
+</div>
+<div class="tabs" id="tabs-use"><button data-t="osint" class="on">情報収集</button><button data-t="chat">JEV チャット</button><button data-t="play">判断 Playground</button><button data-t="tmpl">用途テンプレ</button></div>
+<div class="tabs hidden" id="tabs-research"><button data-t="verify">検証</button><button data-t="batch">バッチ評価</button><button data-t="improve">改良（端末内学習）</button><button data-t="notes">実験ノート</button></div>
+<div class="tabs hidden" id="tabs-learn"><button data-t="viz">仕組み・可視化</button><button data-t="models">モデルを追加</button><button data-t="settings">保存・設定</button></div>
+
 <main>
 
+<!-- ================= 情報収集 ================= -->
+<section id="t-osint">
 <div class="card">
- <div class="grid3">
-  <div><label>モデル</label><select id="model"></select></div>
-  <div><label>状態</label><div id="minfo" class="muted">未ロード</div></div>
-  <div><label>&nbsp;</label><button class="primary" id="load">モデルを読み込む</button></div>
- </div>
- <p class="small" id="offline"></p>
- <p class="muted small" id="storage"></p>
+<details><summary>利用方針（必読）</summary><p class="note small">運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。対象は<b>出来事・地域・話題</b>。個人の特定・追跡・プロファイリングには使わない。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。</p></details>
+<div class="row"><div>
+<label>プリセット（調べたいことの例）</label><select id="o-preset"><option value="">— 選ぶと下が埋まる —</option></select>
+<label>調べたいこと（出来事・地名・話題）</label><input id="o-q" value="津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
+<label>情報源</label><div id="o-src"></div>
+<div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
+<p><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名→座標→標高）</label> <label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
+</div><div>
+<label>信頼性スコアの重み（編集すると順位が変わる）</label><div id="o-w" class="kv"></div>
+<label>根拠（context）— 収集後に自動で入る。編集して照合に使う</label><textarea id="o-ctx" style="min-height:70px" placeholder="1 行 1 件"></textarea>
+</div></div>
+<p><button class="primary" id="o-run">1. 収集する</button> <button id="o-judge" disabled>2. JEV で整理・照合</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-md" disabled>Markdown レポート</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>3. 人手ラベル → JSONL</button></p>
+<p class="muted small" id="o-diff"></p>
+<div id="o-stats"></div>
+<div id="o-out"></div>
 </div>
+</section>
 
-<div class="tabs">
- <button data-t="osint" class="on">情報収集（メイン）</button><button data-t="play">判断 Playground</button><button data-t="verify">検証</button><button data-t="viz">仕組み・可視化</button>
- <button data-t="batch">バッチ評価</button><button data-t="notes">実験ノート</button><button data-t="tmpl">用途テンプレ</button><button data-t="settings">保存・設定</button>
+<!-- ================= JEV チャット ================= -->
+<section id="t-chat" class="hidden">
+<div class="card">
+<p class="muted small">文章を送ると、いま設定されている質問（Playground の質問セット。既定は情報収集用 6 問）で JEV が判断して返す。JEV は生成しないので、返答は「確率つきの判定＋定型の説明」。コマンド：<code>/q choice id 質問 | 選択肢1 | 選択肢2</code>、<code>/q score id 質問 | 低 | 中 | 高</code>、<code>/q noul id 質問</code>、<code>/ctx 根拠文</code>、<code>/osint 調べたいこと</code>（収集して要約）、<code>/preset 名前</code>、<code>/clear</code>、<code>/help</code></p>
+<div class="chat" id="chat"></div>
+<div class="chatin"><textarea id="c-in" placeholder="例：【拡散希望】○○小学校が津波で水没！ / または /osint 津市 大雨"></textarea><button class="primary" id="c-send" disabled>送信</button></div>
 </div>
+</section>
 
-<!-- ============ Playground ============ -->
+<!-- ================= 判断 Playground ================= -->
 <section id="t-play" class="hidden">
 <div class="row"><div class="card">
 <label>用途テンプレ</label><select id="p-tmpl"></select>
 <label>state（状況・本文）</label><textarea id="p-state"></textarea>
-<label>context（根拠。1 行 1 件、空なら無し）</label><textarea id="p-ctx" style="min-height:60px"></textarea>
-<label>questions <span class="muted">（＋で追加。型は Choice / Score / Noul）</span></label>
+<label>context（根拠。1 行 1 件）</label><textarea id="p-ctx" style="min-height:60px"></textarea>
+<label>questions <span class="muted">（＋で追加）</span></label>
 <div id="qb"></div>
-<p><button id="q-add-choice">＋ Choice（多択）</button> <button id="q-add-score">＋ Score（順序段階）</button> <button id="q-add-noul">＋ Noul（yes/no）</button></p>
+<p><button id="q-add-choice">＋ Choice</button> <button id="q-add-score">＋ Score</button> <button id="q-add-noul">＋ Noul</button> <button id="q-save">質問セットを保存</button> <select id="q-sets" style="width:auto"><option value="">保存済みセット</option></select></p>
 <details><summary>JSON で直接編集</summary><textarea id="p-q" style="min-height:160px;font-family:monospace;font-size:12px"></textarea><p><button id="q-apply">JSON を反映</button></p></details>
-<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-note">実験ノートに保存</button> <button id="p-save">結果を JSON で保存</button></p>
+<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-note">実験ノートに保存</button> <button id="p-save">結果 JSON</button></p>
 </div>
 <div class="card">
-<div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b> <span class="muted small">（低い＝尖る、高い＝平ら。再推論なしで反映）</span></span>
-<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span（選択肢トークン平均）</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker（[OPT] 位置）</label></span>
-<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（学習した判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos（ゼロショット：cos(u,v)×<input id="cosScale" value="20" style="width:52px;display:inline">）</label></span></div>
-<p class="muted small">head と cos を切り替えると「学習したヘッドが埋め込みの類似度以上の何を学んだか」が分かる。未学習モデルでは cos の方が意味のある答えを出す。</p>
+<div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b></span>
+<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker</label> <span class="muted small">（JEV-JA のみ）</span></span>
+<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos ×<input id="cosScale" value="20" style="width:52px;display:inline"></label></span></div>
 <div id="p-out"><span class="muted">モデルを読み込んでから「判断する」</span></div>
 </div></div>
 </section>
 
-<!-- ============ 検証 ============ -->
+<!-- ================= 用途テンプレ ================= -->
+<section id="t-tmpl" class="hidden"><div class="card" id="tmpl-list"></div></section>
+
+<!-- ================= 検証 ================= -->
 <section id="t-verify" class="hidden">
-<div class="card"><p class="muted small">Playground の入力を使い、「何を変えると出力がどう変わるか」を測る。研究・教材の両方で使う。</p>
+<div class="card"><p class="muted small">Playground の入力を使い「何を変えると出力がどう変わるか」を測る。</p>
 <div class="row">
- <div><h2>① 根拠（context）あり／なし</h2><p class="muted small">RAG で根拠を注入する効果。分布がどれだけ動くか（L1 距離）を出す。</p><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
- <div><h2>② 選択肢の順序をシャッフル</h2><p class="muted small">順序に依存せず同じ答えを返すか（一貫性）。N 回並べ替えて argmax の一致率を出す。</p><input id="v-n" value="8" style="width:80px"> 回 <button id="v-shuf">実行</button><div id="v-shuf-out"></div></div>
- <div><h2>③ Noul の否定形</h2><p class="muted small">質問を否定形にしたとき p(yes) が反転するか。反転しなければ「質問を読まずに答えている」。</p><button id="v-neg">実行</button><div id="v-neg-out"></div></div>
- <div><h2>④ 選択肢を 1 つ抜く（distractor drop）</h2><p class="muted small">各選択肢を順に抜いたとき、残りの分布がどう変わるか（選択肢間の依存）。</p><button id="v-drop">実行</button><div id="v-drop-out"></div></div>
- <div><h2>⑤ モデル × 手法 × 読み出し のマトリクス</h2><p class="muted small">選んだモデル全部を（未保存ならダウンロードして）同じ入力で実行し、head/cos × span/marker の全組合せを表にする。</p><select id="v-models" multiple size="4"></select><p><button id="v-cmp">実行</button> <button id="v-cmp-note">実験ノートに保存</button></p><div id="v-cmp-out"></div></div>
- <div><h2>⑥ 推論時間の計測</h2><p class="muted small">同じ入力を N 回。p50 / p95 とエンコーダ／ヘッドの内訳。卒論の端末性能表に。</p><input id="v-bn" value="10" style="width:80px"> 回 <button id="v-bench">実行</button><div id="v-bench-out"></div></div>
+ <div><h2>① 根拠あり／なし</h2><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
+ <div><h2>② 選択肢の順序シャッフル</h2><input id="v-n" value="8" style="width:80px"> 回 <button id="v-shuf">実行</button><div id="v-shuf-out"></div></div>
+ <div><h2>③ Noul の否定形</h2><button id="v-neg">実行</button><div id="v-neg-out"></div></div>
+ <div><h2>④ 選択肢を 1 つ抜く</h2><button id="v-drop">実行</button><div id="v-drop-out"></div></div>
+ <div><h2>⑤ モデル × 手法 マトリクス</h2><p class="muted small">JEV-JA は head/cos × span/marker、HF モデルは 1 行。</p><select id="v-models" multiple size="5"></select><p><button id="v-cmp">実行</button> <button id="v-cmp-note">ノートに保存</button></p><div id="v-cmp-out"></div></div>
+ <div><h2>⑥ 推論時間</h2><input id="v-bn" value="10" style="width:80px"> 回 <button id="v-bench">実行</button><div id="v-bench-out"></div></div>
 </div></div>
 </section>
 
-<!-- ============ 仕組み・可視化 ============ -->
-<section id="t-viz" class="hidden">
-<div class="card">
-<h2>0. 全体像</h2>
-<div class="formula" id="f0"></div>
-<p>状況 <em>s</em> と N 個の質問を <b>1 本の列</b>にして一度だけエンコードし、質問ごとに選択肢の確率分布を返す。生成しないので形式エラーが起きない。</p>
-<h2>1. 入力列（直近の判断）</h2>
-<p class="muted small">色: <span class="tk state">state</span> <span class="tk instr0">質問文</span> <span class="tk opt0_0">選択肢</span>、太字は特殊トークン。Python 側と同じ順序で並べる。</p>
-<div id="viz-tokens" class="tokstrip muted">まだ判断していません</div>
-<h2>2. 読み出し：質問ベクトル u と選択肢ベクトル v</h2>
-<div class="formula" id="f1"></div>
-<p>u は質問文トークンの平均、v<sub>k</sub> は選択肢 k のトークン平均（span）。marker は [OPT] 位置の 1 トークンを読む。</p>
-<div id="viz-uv"></div>
-<h2>3. ヘッド → logit → softmax</h2>
-<div class="formula" id="f2"></div>
-<p>ヘッドは小さな MLP（3d → 512 → 1）。入力は [u ; v ; u⊙v]。cos 類似度と logit を並べると「ヘッドが cos 以外の何を見ているか」が分かる。</p>
-<div id="viz-logits"></div>
-<h2>4. ベクトル空間の 2 次元投影（PCA）</h2>
-<p class="muted small">● 質問 u、○ 各選択肢 v。学習が進むと正解の選択肢が u に近づく。</p>
-<canvas id="viz-pca" width="640" height="360"></canvas>
-<h2>5. 損失と較正</h2>
-<div class="formula" id="f3"></div>
-<p>学習時は CE と Brier の和。温度 T は検証データで NLL 最小化により事後推定（この画面のスライダはその手動版）。ECE は top-label 信頼度と正解率の差。</p>
-<h2>6. 処理時間の内訳</h2><div id="viz-time" class="kv"></div>
-<h2>7. 改良の入口（何を変えると何が起きるか）</h2>
-<table><tr><th>変えるもの</th><th>場所</th><th>期待される効果／検証方法</th></tr>
-<tr><td>温度 T</td><td>この画面のスライダ／学習後の自動推定</td><td>較正（ECE）だけが変わり argmax は不変。バッチ評価の較正表で確認</td></tr>
-<tr><td>読み出し span ↔ marker</td><td>ラジオボタン／<code>--pool</code></td><td>英語では marker が学習しない。日本語で再現するか</td></tr>
-<tr><td>Brier の重み λ</td><td><code>--brier</code></td><td>0 にすると CE のみ。較正が悪化するか</td></tr>
-<tr><td>拡張（順序シャッフル・否定形）</td><td><code>--augment p</code></td><td>検証タブ②③の一貫性が上がるか。OOD 精度</td></tr>
-<tr><td>バックボーン 30m → 70m → large</td><td><code>models.yaml</code> の <code>backbone</code></td><td>精度・サイズ・ms のトレードオフ（5 軸）</td></tr>
-<tr><td>根拠の注入（RAG）</td><td>context 欄</td><td>検証タブ①。地理矛盾の検出率</td></tr>
-<tr><td>ヘッドの形（MLP→双線形など）</td><td><code>adapters/jev_ja.py DecisionHead</code></td><td>パラメータ数と精度</td></tr>
-<tr><td>int8 量子化</td><td><code>export_onnx.py --no-int8</code></td><td>fp32 との argmax 一致率、サイズ 155→45 MB</td></tr></table>
-</div>
-</section>
-
-<!-- ============ バッチ評価 ============ -->
+<!-- ================= バッチ評価 ================= -->
 <section id="t-batch" class="hidden">
 <div class="card">
-<p class="muted small">JSONL（1 行 = 1 state、<code>bench/data/*.jsonl</code> と同じ形式）を端末内で評価し、精度・Brier・ECE・p50/p95 を出す。結果 JSON は <code>docs/results/</code> に置く形式と同じ。</p>
-<p><label>公開データ（docs/bench/）</label><select id="b-ds"></select> <button id="b-sample">読み込む</button></p>
-<p><label>または自分の JSONL</label><input type="file" id="b-file" accept=".jsonl,.json,.txt"> <span class="muted" id="b-info"></span></p>
-<p><label>family で絞る（空＝全部）</label><input id="b-family" placeholder="例: jnli, jsts_ood"> <label>最大 state 数（0＝全部）</label><input id="b-limit" value="0" style="width:90px"></p>
-<p><label style="display:inline"><input type="checkbox" id="b-ctx" checked style="width:auto"> context を使う</label> <label>実験名（ノートに記録）</label><input id="b-name" placeholder="例: 30m head span T=1 test"> <button class="primary" id="b-run" disabled>評価する</button> <button id="b-dl">結果 JSON を保存</button> <button id="b-csv">行ごとの CSV を保存</button></p>
-<p class="muted small">評価結果は自動で「実験ノート」に記録される（モデル・手法・pool・T・データ・端末・時刻つき）。</p>
+<p><label>公開データ（docs/bench/）</label><select id="b-ds"></select> <button id="b-sample">読み込む</button> <label>または自分の JSONL</label><input type="file" id="b-file" accept=".jsonl,.json,.txt"> <span class="muted" id="b-info"></span></p>
+<p><label>family で絞る（カンマ区切り、空＝全部）</label><input id="b-family"> <label>最大 state 数（0＝全部）</label><input id="b-limit" value="0" style="width:90px"></p>
+<p><label style="display:inline"><input type="checkbox" id="b-ctx" checked style="width:auto"> context を使う</label> <label>実験名</label><input id="b-name" placeholder="空なら自動"> <button class="primary" id="b-run" disabled>評価する</button> <button id="b-stop" disabled>中止</button> <button id="b-dl">結果 JSON</button> <button id="b-csv">行 CSV</button></p>
+<div class="prog"><i id="b-prog"></i></div>
 <div id="b-out"></div>
 <canvas id="b-cal" width="360" height="360" class="hidden"></canvas>
 </div>
 </section>
 
-<!-- ============ 情報収集（OSINT） ============ -->
-<section id="t-osint">
+<!-- ================= 改良（端末内学習） ================= -->
+<section id="t-improve" class="hidden">
 <div class="card">
-<p class="note small"><b>利用方針</b>：運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。対象は<b>出来事・地域・話題</b>。個人の特定・追跡・プロファイリングには使わない。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。</p>
+<h2>JEV-JA の判断ヘッドを、この端末で再学習する</h2>
+<p class="muted small">エンコーダは固定し、判断ヘッド（MLP 約 40 万パラメータ）だけを JS で学習する。数百件なら数十秒。学習前後を同じ検証データで比べ、良ければ保存（以後この端末の JEV-JA はそのヘッドを使う）。PC の学習（<code>train_jev_ja.py</code>）はエンコーダごと更新する本格版。</p>
 <div class="row"><div>
-<label>調べたいこと（出来事・地名・話題）</label><input id="o-q" value="津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
-<label>情報源</label><div id="o-src"></div>
-<div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語（Bluesky/GDELT）</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
-<p><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名 → 座標 → 標高を根拠に加える）</label> <label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似・重複投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
+<label>学習データ</label>
+<select id="i-src"><option value="batch">バッチ評価に読み込んだ JSONL（gold 付き）</option><option value="osint">情報収集の人手ラベル（今の画面）</option><option value="file">JSONL ファイル</option></select>
+<input type="file" id="i-file" accept=".jsonl" class="hidden">
+<p><label>family で絞る</label><input id="i-family"> <label>最大件数</label><input id="i-limit" value="300" style="width:80px"></p>
+<div class="grid3"><div><label>エポック</label><input id="i-ep" value="8"></div><div><label>学習率</label><input id="i-lr" value="0.001"></div><div><label>Brier λ</label><input id="i-lam" value="1"></div></div>
+<p><label>検証に回す割合</label><input id="i-val" value="0.2" style="width:80px"></p>
+<p><button class="primary" id="i-run" disabled>学習する</button> <button id="i-save" disabled>このヘッドを保存して使う</button> <button id="i-reset">保存したヘッドを消す（書き出し時に戻す）</button> <button id="i-export">ヘッド JSON</button> <input type="file" id="i-import" accept=".json" style="width:auto"></p>
 </div><div>
-<label>信頼性スコアの重み（合計で正規化。編集して判断がどう変わるか見る）</label>
-<div id="o-w" class="kv"></div>
-<p class="muted small">score = Σ w<sub>k</sub>·f<sub>k</sub> / Σ w<sub>k</sub>。f: 公的発表(0/1)、根拠と整合 p、具体性 p、種類（公的1／報道0.8／目撃0.5／意見0.2／無関係0）、拡散依頼なし 1−p、関連 p。<b>JEV の出力をルールで合成する「説明できるスコア」</b>。</p>
+<div id="i-state" class="muted">ヘッド: —</div>
+<div id="i-out"></div>
+<canvas id="i-curve" width="480" height="200" class="hidden"></canvas>
 </div></div>
-<p><button class="primary" id="o-run">1. 収集する</button> <button id="o-judge" disabled>2. JEV で整理・照合</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>3. 人手ラベル → 学習データ JSONL</button></p>
-<p class="muted small" id="o-diff"></p>
-<div id="o-out"></div>
 </div>
 </section>
 
-<!-- ============ 実験ノート ============ -->
+<!-- ================= 実験ノート ================= -->
 <section id="t-notes" class="hidden">
 <div class="card">
-<p class="muted small">この端末で行った実験の記録（IndexedDB）。卒論の表はここから CSV で出す。PC で回した結果（docs/results/）は「解説・結果」ページに統合表示される。</p>
-<p><button id="n-csv">全件 CSV</button> <button id="n-json">全件 JSON（バックアップ）</button> <input type="file" id="n-import" accept=".json" style="width:auto"> <button id="n-clear">全削除</button></p>
+<p class="muted small">この端末の実験記録（IndexedDB）。卒論の表はここから CSV。</p>
+<p><button id="n-csv">全件 CSV</button> <button id="n-json">全件 JSON</button> <input type="file" id="n-import" accept=".json" style="width:auto"> <button id="n-clear">全削除</button> <label style="display:inline">比較: <select id="n-a" style="width:auto"></select> vs <select id="n-b" style="width:auto"></select> <button id="n-cmp">差を見る</button></label></p>
+<div id="n-cmp-out"></div>
 <div id="n-list"></div>
 </div>
 </section>
 
-<!-- ============ 用途テンプレ ============ -->
-<section id="t-tmpl" class="hidden"><div class="card" id="tmpl-list"></div></section>
+<!-- ================= 仕組み・可視化 ================= -->
+<section id="t-viz" class="hidden">
+<div class="card">
+<p>詳しい数式と解説は <a href="theory.html">仕組みページ</a>。ここでは<b>直近の判断</b>の中身を見る。</p>
+<h2>1. 入力列</h2><div id="viz-tokens" class="tokstrip muted">まだ判断していません（JEV-JA のみ）</div>
+<h2>2. 質問ベクトル u と選択肢ベクトル v の cos</h2><div id="viz-uv"></div>
+<h2>3. logit → softmax</h2><div class="formula" id="f2"></div><div id="viz-logits"></div>
+<h2>4. PCA（● 質問 u、○ 選択肢 v）</h2><canvas id="viz-pca" width="640" height="360"></canvas>
+<h2>5. 処理時間</h2><div id="viz-time" class="kv"></div>
+</div>
+</section>
 
-<!-- ============ 保存・設定 ============ -->
+<!-- ================= モデルを追加 ================= -->
+<section id="t-models" class="hidden">
+<div class="card">
+<h2>使えるモデル</h2><div id="m-list"></div>
+<h2>Hugging Face のモデルを追加（コピペ）</h2>
+<p class="muted small">Transformers.js 対応（ONNX 同梱）のリポを指定。<b>hf-zeroshot</b> は NLI 系（zero-shot-classification）、<b>hf-embed</b> は文埋め込み（feature-extraction）。追加後は上のモデル欄に出る。PC 専用（GLiNER2 / open-jev / LLM）は <code>config/models.yaml</code>。</p>
+<textarea id="m-json" style="min-height:120px;font-family:monospace;font-size:12px">{ "name": "my_model", "kind": "hf-zeroshot", "hf_id": "Xenova/nli-deberta-v3-xsmall", "dtype": "q8", "language": "en", "hypothesis_template": "This example is {}.", "note": "" }</textarea>
+<p><button class="primary" id="m-add">追加</button> <button id="m-clear">追加分を全削除</button></p>
+<details><summary>例（コピペ用）</summary><pre class="small">{ "name": "xenova_mdeberta_xnli", "kind": "hf-zeroshot", "hf_id": "Xenova/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7", "dtype": "q8", "language": "multi", "hypothesis_template": "この文は「{}」である。" }
+{ "name": "e5_small", "kind": "hf-embed", "hf_id": "Xenova/multilingual-e5-small", "dtype": "q8", "language": "multi", "prefix": "query: ", "scale": 30 }
+{ "name": "minilm_multi", "kind": "hf-embed", "hf_id": "Xenova/paraphrase-multilingual-MiniLM-L12-v2", "dtype": "q8", "language": "multi", "scale": 20 }</pre></details>
+</div>
+</section>
+
+<!-- ================= 保存・設定 ================= -->
 <section id="t-settings" class="hidden">
 <div class="card">
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
-<p class="note small">モデルは IndexedDB に保存され、通常は消えません。消えるのは：ブラウザのサイトデータ削除、iOS で数週間使わなかった場合、容量不足。「永続化」を許可し、ホーム画面に追加しておくと最も安全です。</p>
-<p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button></p>
+<p class="muted small" id="storage"></p>
+<p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
+<h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label></p>
 <h2>端末情報</h2><div id="s-env" class="kv"></div>
 </div>
 </section>

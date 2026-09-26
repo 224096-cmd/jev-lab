@@ -1,0 +1,219 @@
+{
+ "data": "data/jevbench_ja/ood.jsonl",
+ "results": [
+  {
+   "n_questions": 3900,
+   "accuracy": 0.33615384615384614,
+   "brier": 0.7680275171099867,
+   "ece": 0.18198550295027677,
+   "ece_table": [
+    {
+     "bin": "0.0-0.1",
+     "n": 0
+    },
+    {
+     "bin": "0.1-0.2",
+     "n": 297,
+     "confidence": 0.14732972566673874,
+     "accuracy": 0.26262626262626265
+    },
+    {
+     "bin": "0.2-0.3",
+     "n": 725,
+     "confidence": 0.25698255252749036,
+     "accuracy": 0.26068965517241377
+    },
+    {
+     "bin": "0.3-0.4",
+     "n": 246,
+     "confidence": 0.3499128872945783,
+     "accuracy": 0.33739837398373984
+    },
+    {
+     "bin": "0.4-0.5",
+     "n": 528,
+     "confidence": 0.4389996204990867,
+     "accuracy": 0.3428030303030303
+    },
+    {
+     "bin": "0.5-0.6",
+     "n": 931,
+     "confidence": 0.5485300061042492,
+     "accuracy": 0.527389903329753
+    },
+    {
+     "bin": "0.6-0.7",
+     "n": 249,
+     "confidence": 0.6315573827987698,
+     "accuracy": 0.4899598393574297
+    },
+    {
+     "bin": "0.7-0.8",
+     "n": 588,
+     "confidence": 0.7736693271906768,
+     "accuracy": 0.19727891156462585
+    },
+    {
+     "bin": "0.8-0.9",
+     "n": 336,
+     "confidence": 0.8216832807305943,
+     "accuracy": 0.15178571428571427
+    },
+    {
+     "bin": "0.9-1.0",
+     "n": 0
+    }
+   ],
+   "latency_p50_ms": 25.873269999920012,
+   "latency_p95_ms": 47.84209094982542,
+   "invalid_rate": 0.0,
+   "per_family": {
+    "wrime_sentiment_ood": {
+     "n": 600,
+     "accuracy": 0.38,
+     "mae": 1.0516643306497988
+    },
+    "claim_check_ja_ood": {
+     "n": 600,
+     "accuracy": 0.345
+    },
+    "livedoor_topic_ood": {
+     "n": 300,
+     "accuracy": 0.27
+    },
+    "jcqa_ood": {
+     "n": 300,
+     "accuracy": 0.3333333333333333
+    },
+    "tweet_sentiment_en_ood": {
+     "n": 300,
+     "accuracy": 0.32,
+     "mae": 0.6302575573958572
+    },
+    "jnli_ood": {
+     "n": 600,
+     "accuracy": 0.35333333333333333
+    },
+    "jsts_ood": {
+     "n": 300,
+     "accuracy": 0.2966666666666667,
+     "mae": 1.2514921188815584
+    },
+    "fever_en_ood": {
+     "n": 600,
+     "accuracy": 0.375
+    },
+    "jcola_ood": {
+     "n": 300,
+     "accuracy": 0.24333333333333335
+    }
+   },
+   "model": "jev_ja_30m",
+   "probability_kind": "native",
+   "use_context": true
+  },
+  {
+   "n_questions": 3900,
+   "accuracy": 0.3935897435897436,
+   "brier": 0.6525235061546608,
+   "ece": 0.12888828697470514,
+   "ece_table": [
+    {
+     "bin": "0.0-0.1",
+     "n": 0
+    },
+    {
+     "bin": "0.1-0.2",
+     "n": 600,
+     "confidence": 0.1404022361010075,
+     "accuracy": 0.14666666666666667
+    },
+    {
+     "bin": "0.2-0.3",
+     "n": 600,
+     "confidence": 0.20184958177374338,
+     "accuracy": 0.14
+    },
+    {
+     "bin": "0.3-0.4",
+     "n": 1200,
+     "confidence": 0.3350161418286415,
+     "accuracy": 0.22916666666666666
+    },
+    {
+     "bin": "0.4-0.5",
+     "n": 0
+    },
+    {
+     "bin": "0.5-0.6",
+     "n": 1500,
+     "confidence": 0.5021489722644409,
+     "accuracy": 0.7253333333333334
+    },
+    {
+     "bin": "0.6-0.7",
+     "n": 0
+    },
+    {
+     "bin": "0.7-0.8",
+     "n": 0
+    },
+    {
+     "bin": "0.8-0.9",
+     "n": 0
+    },
+    {
+     "bin": "0.9-1.0",
+     "n": 0
+    }
+   ],
+   "latency_p50_ms": 25.705519499979346,
+   "latency_p95_ms": 48.85824244981904,
+   "invalid_rate": 0.0,
+   "per_family": {
+    "wrime_sentiment_ood": {
+     "n": 600,
+     "accuracy": 0.28,
+     "mae": 1.0592154711000674
+    },
+    "claim_check_ja_ood": {
+     "n": 600,
+     "accuracy": 0.5
+    },
+    "livedoor_topic_ood": {
+     "n": 300,
+     "accuracy": 0.1
+    },
+    "jcqa_ood": {
+     "n": 300,
+     "accuracy": 0.18333333333333332
+    },
+    "tweet_sentiment_en_ood": {
+     "n": 300,
+     "accuracy": 0.32666666666666666,
+     "mae": 0.5115256545869783
+    },
+    "jnli_ood": {
+     "n": 600,
+     "accuracy": 0.49666666666666665
+    },
+    "jsts_ood": {
+     "n": 300,
+     "accuracy": 0.19333333333333333,
+     "mae": 1.2466917869722536
+    },
+    "fever_en_ood": {
+     "n": 600,
+     "accuracy": 0.49833333333333335
+    },
+    "jcola_ood": {
+     "n": 300,
+     "accuracy": 0.7633333333333333
+    }
+   },
+   "model": "jev_ja_30m_cos",
+   "probability_kind": "native",
+   "use_context": true
+  }
+ ]
+}

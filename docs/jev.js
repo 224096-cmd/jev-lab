@@ -3,7 +3,7 @@
    - decide() は答えだけでなく、途中量（トークン列・スパン・u/v ベクトル・logit・類似度）も返す
    - span / marker 両方の読み出しを 1 forward で計算し、温度 T はページ側で再適用できる
    Python 側 jev_lab/adapters/jev_ja.py と同じ手順 */
-import { PreTrainedTokenizer } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
+import { PreTrainedTokenizer, pipeline, env as hfenv } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
 import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.mjs";
 ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/";
 
@@ -21,7 +21,7 @@ export const store = {
   async expDel(id) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("experiments", "readwrite").objectStore("experiments").delete(id); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
 };
 
-const FILES = ["config.json", "tokenizer.json", "tokenizer_config.json", "head.onnx", "encoder.onnx"];
+const FILES = ["config.json", "tokenizer.json", "tokenizer_config.json", "head.onnx", "head.bin", "encoder.onnx"];
 
 async function fetchBuf(url, onProgress) {
   const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`);
@@ -56,6 +56,45 @@ export function pca2(vecs) {
   return X.map(x => comps.map(w => { let s = 0; for (let i = 0; i < d; i++) s += x[i] * w[i]; return s; }));
 }
 
+/* ---------------- 判断ヘッド（純 JS 実装。端末内で再学習できる） ----------------
+   z = w2ᵀ tanh(W1 [u;v;u⊙v] + b1) + b2   W1: hid×3d */
+export class HeadJS {
+  /* version 2: LayerNorm(u), LayerNorm(v) → [u;v;u⊙v] → MLP。version 1 は正規化なし（旧チェックポイント） */
+  constructor(d, hid, buf, version = 2) {
+    this.d = d; this.hid = hid; this.version = version; const f = buf ? new Float32Array(buf) : null; let o = 0;
+    const take = n => { const a = f ? f.slice(o, o + n) : new Float32Array(n); o += n; return a; };
+    if (version >= 2) { this.gu = take(d); this.bu = take(d); this.gv = take(d); this.bv = take(d); if (!f) { this.gu.fill(1); this.gv.fill(1); } }
+    this.W1 = take(hid * 3 * d); this.b1 = take(hid); this.w2 = take(hid); this.b2 = f ? take(1)[0] : 0;
+    this.origin = "export";
+  }
+  static fromJSON(j) { const h = new HeadJS(j.d, j.hid, null, j.version ?? 1); for (const k of ["gu", "bu", "gv", "bv", "W1", "b1", "w2"]) if (j[k]) h[k] = Float32Array.from(j[k]); h.b2 = j.b2; h.origin = j.origin || "custom"; h.trained_on = j.trained_on; return h; }
+  toJSON() { const j = { version: this.version, d: this.d, hid: this.hid, W1: Array.from(this.W1), b1: Array.from(this.b1), w2: Array.from(this.w2), b2: this.b2, origin: this.origin, trained_on: this.trained_on }; if (this.version >= 2) for (const k of ["gu", "bu", "gv", "bv"]) j[k] = Array.from(this[k]); return j; }
+  clone() { return HeadJS.fromJSON(this.toJSON()); }
+  static ln(x, g, b) { const n = x.length; let m = 0; for (let i = 0; i < n; i++) m += x[i]; m /= n; let v = 0; for (let i = 0; i < n; i++) v += (x[i] - m) ** 2; v /= n; const s = 1 / Math.sqrt(v + 1e-5); const y = new Float32Array(n); for (let i = 0; i < n; i++) y[i] = (x[i] - m) * s * g[i] + b[i]; return y; }
+  _x(u, v) { const d = this.d; if (this.version >= 2) { u = HeadJS.ln(u, this.gu, this.bu); v = HeadJS.ln(v, this.gv, this.bv); } const x = new Float32Array(3 * d); for (let i = 0; i < d; i++) { x[i] = u[i]; x[d + i] = v[i]; x[2 * d + i] = u[i] * v[i]; } return x; }
+  _fwd(x) { const { hid, d } = this, D = 3 * d, h = new Float32Array(hid); for (let j = 0; j < hid; j++) { let s = this.b1[j]; const off = j * D; for (let i = 0; i < D; i++) s += this.W1[off + i] * x[i]; h[j] = Math.tanh(s); } let z = this.b2; for (let j = 0; j < hid; j++) z += this.w2[j] * h[j]; return { z, h }; }
+  logits(u, V) { return V.map(v => this._fwd(this._x(u, v)).z); }
+  /* 学習（LN のパラメータは固定、W1/b1/w2/b2 を Adam で更新）。examples = [{u, V, y}] */
+  train(examples, { epochs = 8, lr = 1e-3, lam = 1.0, onEpoch = () => {} } = {}) {
+    const { hid, d } = this, D = 3 * d; const P = { W1: this.W1, b1: this.b1, w2: this.w2 }; const m = {}, v = {}; for (const k in P) { m[k] = new Float32Array(P[k].length); v[k] = new Float32Array(P[k].length); } let mb2 = 0, vb2 = 0, t = 0; const b1 = 0.9, b2 = 0.999, eps = 1e-8;
+    const pre = examples.map(ex => ({ xs: ex.V.map(vv => this._x(ex.u, vv)), y: ex.y }));   // LN 済み入力をキャッシュ
+    for (let ep = 0; ep < epochs; ep++) {
+      let tot = 0, correct = 0; const order = pre.map((_, i) => i).sort(() => Math.random() - 0.5);
+      for (const idx of order) {
+        const ex = pre[idx], K = ex.xs.length, fw = ex.xs.map(x => this._fwd(x)); const z = fw.map(f => f.z), p = softmax(z, 1);
+        const am = p.indexOf(Math.max(...p)); if (am === ex.y) correct++; tot += -Math.log(p[ex.y] + 1e-9) + lam * p.reduce((s, pk, k) => s + (pk - (k === ex.y ? 1 : 0)) ** 2, 0);
+        const g = new Float32Array(K); const q = p.map((pk, k) => pk - (k === ex.y ? 1 : 0)); const dot = q.reduce((s2, qj, j) => s2 + qj * p[j], 0); for (let k = 0; k < K; k++) g[k] = q[k] + lam * 2 * p[k] * (q[k] - dot);
+        const gW1 = new Float32Array(P.W1.length), gb1 = new Float32Array(hid), gw2 = new Float32Array(hid); let gb2 = 0;
+        for (let k = 0; k < K; k++) { const gz = g[k]; if (!gz) continue; const { h } = fw[k], x = ex.xs[k]; gb2 += gz; for (let j = 0; j < hid; j++) { gw2[j] += gz * h[j]; const gh = gz * this.w2[j] * (1 - h[j] * h[j]); if (!gh) continue; gb1[j] += gh; const off = j * D; for (let i = 0; i < D; i++) gW1[off + i] += gh * x[i]; } }
+        t++; const step = (param, grad, mm, vv2) => { const c1 = 1 - b1 ** t, c2 = 1 - b2 ** t; for (let i = 0; i < param.length; i++) { mm[i] = b1 * mm[i] + (1 - b1) * grad[i]; vv2[i] = b2 * vv2[i] + (1 - b2) * grad[i] * grad[i]; param[i] -= lr * (mm[i] / c1) / (Math.sqrt(vv2[i] / c2) + eps); } };
+        step(P.W1, gW1, m.W1, v.W1); step(P.b1, gb1, m.b1, v.b1); step(P.w2, gw2, m.w2, v.w2); mb2 = b1 * mb2 + (1 - b1) * gb2; vb2 = b2 * vb2 + (1 - b2) * gb2 * gb2; this.b2 -= lr * (mb2 / (1 - b1 ** t)) / (Math.sqrt(vb2 / (1 - b2 ** t)) + eps);
+      }
+      onEpoch(ep, tot / examples.length, correct / examples.length);
+    }
+    this.origin = "custom"; return this;
+  }
+}
+
 /* ---------------- モデル ---------------- */
 export class JevJa {
   constructor(name) { this.name = name; this.base = new URL(`./models/${name}/`, import.meta.url).href; }
@@ -79,9 +118,15 @@ export class JevJa {
     onProgress("ONNX セッションを作成中");
     this.enc = await ort.InferenceSession.create(new Uint8Array(bufs["encoder.onnx"]), { executionProviders: ep });
     this.head = await ort.InferenceSession.create(new Uint8Array(bufs["head.onnx"]), { executionProviders: ["wasm"] });
-    this.backend = ep[0]; this.vocab = this.tok.model?.vocab; onProgress("");
+    this.headExport = new HeadJS(this.cfg.hidden, this.cfg.head?.hidden || 512, bufs["head.bin"], this.cfg.head?.version || 1);
+    const custom = await store.get(`headjs:${this.name}`); this.headCustom = custom ? HeadJS.fromJSON(custom) : null;
+    this.backend = ep[0]; this.vocab = this.tok.model?.vocab; this.kind = "jev_ja"; onProgress("");
     return this;
   }
+  /* 端末内で学習したヘッドを使うか（null なら ONNX の書き出し時ヘッド） */
+  get activeHead() { return this.headCustom; }
+  async saveCustomHead(h, trained_on) { h.trained_on = trained_on; this.headCustom = h; await store.put(`headjs:${this.name}`, h.toJSON()); }
+  async resetCustomHead() { this.headCustom = null; await store.del(`headjs:${this.name}`); }
 
   _raw(text) { return Array.from(this.tok(text, { add_special_tokens: false }).input_ids.data, Number); }
   /* Python(tokenizers) と同じ byte fallback: 語彙に無い文字は UTF-8 バイト列 <0xXX> に */
@@ -122,7 +167,7 @@ export class JevJa {
     const tEnc = performance.now();
     const mean = ([s, e]) => { const v = new Float32Array(d); for (let t = s; t < e; t++) for (let i = 0; i < d; i++) v[i] += H[t * d + i]; for (let i = 0; i < d; i++) v[i] /= (e - s); return v; };
     const row = t => H.slice(t * d, (t + 1) * d);
-    const runHead = async (u, V, K) => Array.from((await this.head.run({ u: new ort.Tensor("float32", u, [d]), v: new ort.Tensor("float32", V, [K, d]) })).logits.data);
+    const runHead = async (u, V, K) => this.headCustom ? this.headCustom.logits(u, Array.from({ length: K }, (_, k) => V.subarray(k * d, (k + 1) * d))) : Array.from((await this.head.run({ u: new ort.Tensor("float32", u, [d]), v: new ort.Tensor("float32", V, [K, d]) })).logits.data);
     const qres = [];
     for (let j = 0; j < questions.length; j++) {
       const q = questions[j], opts_ = JevJa.optionsOf(q), K = opts_.length;
@@ -132,7 +177,7 @@ export class JevJa {
       qres.push({ q, labels: opts_, u, Vs, Vm, z_span: await runHead(u, flat(Vs), K), z_marker: await runHead(u, flat(Vm), K), cos_span: Vs.map(v => cosine(u, v)), cos_marker: Vm.map(v => cosine(u, v)) });
     }
     const tHead = performance.now();
-    const res = { model: this.name, backend: this.backend, probability_kind: "native", tokens: ids.map((id, i) => ({ id, text: this.tokenText(id), role: roles[i] })), spans, marker, n_tokens: L, timing: { encoder_ms: tEnc - t0, head_ms: tHead - tEnc, total_ms: tHead - t0 }, questions: qres, input: { state, context, questions } };
+    const res = { model: this.name, backend: this.backend, probability_kind: "native", head: this.headCustom ? "custom" : "export", tokens: ids.map((id, i) => ({ id, text: this.tokenText(id), role: roles[i] })), spans, marker, n_tokens: L, timing: { encoder_ms: tEnc - t0, head_ms: tHead - tEnc, total_ms: tHead - t0 }, questions: qres, input: { state, context, questions } };
     res.answers = JevJa.answersFrom(res, opts);
     res.latency_ms = res.timing.total_ms;
     return res;
@@ -174,4 +219,57 @@ export function metrics(rows, latencies) {
   const per_family = Object.fromEntries(Object.entries(per).map(([k, v]) => [k, { n: v.n, accuracy: v.c / v.n, ...(v.ms ? { mae: v.mae / v.ms } : {}) }]));
   const s = [...latencies].sort((a, b) => a - b), pct = p => s.length ? s[Math.min(s.length - 1, Math.floor((s.length - 1) * p))] : NaN;
   return { n_questions: n, accuracy: acc, brier, ece, ece_table: bins.map(b => ({ bin: b.bin, n: b.n, confidence: b.conf, accuracy: b.acc })), latency_p50_ms: pct(0.5), latency_p95_ms: pct(0.95), invalid_rate: 0, per_family };
+}
+
+
+/* ================= 既存モデル（Hugging Face、Transformers.js 経由） =================
+   models/registry.json にコピペで追加できる。kind:
+     "hf-zeroshot" : zero-shot-classification（NLI 系）。選択肢を仮説にし entailment を softmax → native 分布
+     "hf-embed"    : feature-extraction（文埋め込み）。state と「質問: 選択肢」の cos × scale → native 分布
+   重みは HF Hub から取得（Transformers.js のキャッシュに保存、2 回目からオフライン可） */
+export class HfZeroShot {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "hf-zeroshot"; this.probability_kind = "native"; }
+  async load(onProgress = () => {}) {
+    hfenv.allowRemoteModels = true; hfenv.allowLocalModels = false; hfenv.useBrowserCache = true;
+    this.pipe = await pipeline("zero-shot-classification", this.cfg.hf_id, { dtype: this.cfg.dtype || "q8", progress_callback: p => { if (p.status === "progress") onProgress(`${p.file} ${(p.loaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB`); } });
+    hfenv.allowLocalModels = true; this.backend = "wasm"; onProgress(""); return this;
+  }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const answers = [];
+    for (const q of questions) { const labels = JevJa.optionsOf(q); const tpl = this.cfg.hypothesis_template || "{}"; const hyps = labels.map(l => (q.instructions ? q.instructions + " " : "") + tpl.replace("{}", l));
+      const r = await this.pipe(full, hyps, { multi_label: false }); const sc = new Map(r.labels.map((l, i) => [l, r.scores[i]])); let p = hyps.map(h => sc.get(h) ?? 0); const T = opts.T || 1; if (T !== 1) { const z = p.map(x => Math.log(x + 1e-9)); p = softmax(z, T); } const s2 = p.reduce((a, b) => a + b, 0); p = p.map(x => x / s2);
+      answers.push(mkAnswer(q, labels, p, p.map(x => Math.log(x + 1e-9)))); }
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: null, answers };
+  }
+}
+export class HfEmbed {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "hf-embed"; this.probability_kind = "native"; }
+  async load(onProgress = () => {}) {
+    hfenv.allowRemoteModels = true; hfenv.allowLocalModels = false; hfenv.useBrowserCache = true;
+    this.pipe = await pipeline("feature-extraction", this.cfg.hf_id, { dtype: this.cfg.dtype || "q8", progress_callback: p => { if (p.status === "progress") onProgress(`${p.file} ${(p.loaded / 1e6).toFixed(0)}/${(p.total / 1e6).toFixed(0)} MB`); } });
+    hfenv.allowLocalModels = true; this.backend = "wasm"; onProgress(""); return this;
+  }
+  async embed(text) { const out = await this.pipe((this.cfg.prefix || "") + text, { pooling: "mean", normalize: true }); return Float32Array.from(out.data); }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : context.join("\n") + "\n" + state; const s = await this.embed(full); const answers = [];
+    for (const q of questions) { const labels = JevJa.optionsOf(q); const V = []; for (const l of labels) V.push(await this.embed(`${q.instructions}: ${l}`)); const scale = opts.cosScale || this.cfg.scale || 20; const z = V.map(v => cosine(s, v) * scale); const p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z)); }
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: null, answers };
+  }
+}
+function mkAnswer(q, labels, p, z) { const am = p.indexOf(Math.max(...p)); const a = { id: q.id, type: q.type, distribution: { labels, probabilities: p }, logits: z, confidence: p[am] }; if (q.type === "choice") a.choice = labels[am]; else if (q.type === "score") { const vals = q.values || labels.map((_, i) => i); a.score = p.reduce((s, pi, i) => s + pi * vals[i], 0); a.level = labels[am]; } else { a.p_yes = p[0]; a.noul = p[0] >= 0.5; } return a; }
+
+/* registry + index からモデル一覧を作り、名前でロードする */
+export async function listAllModels() {
+  const out = [];
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: "jev_ja", group: "JEV-JA（端末内・学習可）" }); } catch { }
+  try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.kind === "hf-zeroshot" ? "既存モデル: ゼロショット NLI（HF）" : "既存モデル: 文埋め込み（HF）" }); } catch { }
+  try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
+  return out;
+}
+export async function loadModelByName(name, onProgress) {
+  const all = await listAllModels(); const e = all.find(m => m.name === name); if (!e) throw new Error("unknown model: " + name);
+  if (e.kind === "jev_ja") return new JevJa(name).load(onProgress);
+  if (e.kind === "hf-zeroshot") return new HfZeroShot(e).load(onProgress);
+  if (e.kind === "hf-embed") return new HfEmbed(e).load(onProgress);
+  throw new Error("unsupported kind: " + e.kind);
 }

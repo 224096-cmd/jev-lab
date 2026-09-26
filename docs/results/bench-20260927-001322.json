@@ -1,0 +1,287 @@
+{
+ "data": "data/jevbench_ja/test.jsonl",
+ "results": [
+  {
+   "n_questions": 4292,
+   "accuracy": 0.4792637465051258,
+   "brier": 0.5965361786984731,
+   "ece": 0.025762361676237158,
+   "ece_table": [
+    {
+     "bin": "0.0-0.1",
+     "n": 49,
+     "confidence": 0.09258154008983818,
+     "accuracy": 0.061224489795918366
+    },
+    {
+     "bin": "0.1-0.2",
+     "n": 392,
+     "confidence": 0.14577762141326386,
+     "accuracy": 0.23214285714285715
+    },
+    {
+     "bin": "0.2-0.3",
+     "n": 778,
+     "confidence": 0.2592088697201321,
+     "accuracy": 0.2570694087403599
+    },
+    {
+     "bin": "0.3-0.4",
+     "n": 323,
+     "confidence": 0.34898320963843754,
+     "accuracy": 0.33126934984520123
+    },
+    {
+     "bin": "0.4-0.5",
+     "n": 605,
+     "confidence": 0.452250573224907,
+     "accuracy": 0.42479338842975206
+    },
+    {
+     "bin": "0.5-0.6",
+     "n": 1124,
+     "confidence": 0.5360411932210893,
+     "accuracy": 0.5106761565836299
+    },
+    {
+     "bin": "0.6-0.7",
+     "n": 123,
+     "confidence": 0.6336223319907691,
+     "accuracy": 0.6422764227642277
+    },
+    {
+     "bin": "0.7-0.8",
+     "n": 353,
+     "confidence": 0.7778533421866214,
+     "accuracy": 0.8243626062322946
+    },
+    {
+     "bin": "0.8-0.9",
+     "n": 545,
+     "confidence": 0.8253391014060589,
+     "accuracy": 0.8348623853211009
+    },
+    {
+     "bin": "0.9-1.0",
+     "n": 0
+    }
+   ],
+   "latency_p50_ms": 26.38941899999736,
+   "latency_p95_ms": 66.75474610021864,
+   "invalid_rate": 0.0,
+   "per_family": {
+    "livedoor_topic": {
+     "n": 300,
+     "accuracy": 0.27666666666666667
+    },
+    "claim_check_ja": {
+     "n": 600,
+     "accuracy": 0.7016666666666667
+    },
+    "jnli": {
+     "n": 600,
+     "accuracy": 0.7233333333333334
+    },
+    "fever_en": {
+     "n": 600,
+     "accuracy": 0.45166666666666666
+    },
+    "tweet_sentiment_en": {
+     "n": 300,
+     "accuracy": 0.43,
+     "mae": 0.6199697652104074
+    },
+    "jcqa": {
+     "n": 300,
+     "accuracy": 0.37
+    },
+    "fast_decisions_en:document_type": {
+     "n": 31,
+     "accuracy": 0.06451612903225806
+    },
+    "wrime_sentiment": {
+     "n": 600,
+     "accuracy": 0.3233333333333333,
+     "mae": 1.0598650773502376
+    },
+    "jsts": {
+     "n": 300,
+     "accuracy": 0.29333333333333333,
+     "mae": 1.2521721302026718
+    },
+    "fast_decisions_en:product_feedback": {
+     "n": 37,
+     "accuracy": 0.1891891891891892
+    },
+    "jcola": {
+     "n": 300,
+     "accuracy": 0.7566666666666667
+    },
+    "fast_decisions_en:agent_handoff": {
+     "n": 30,
+     "accuracy": 0.5333333333333333
+    },
+    "fast_decisions_en:ticket_route": {
+     "n": 75,
+     "accuracy": 0.22666666666666666
+    },
+    "fast_decisions_en:news_topic": {
+     "n": 29,
+     "accuracy": 0.2413793103448276
+    },
+    "fast_decisions_en:email_triage": {
+     "n": 136,
+     "accuracy": 0.3088235294117647
+    },
+    "fast_decisions_en:review_sentiment": {
+     "n": 27,
+     "accuracy": 0.2962962962962963
+    },
+    "fast_decisions_en:support_intent": {
+     "n": 27,
+     "accuracy": 0.0
+    }
+   },
+   "model": "jev_ja_30m",
+   "probability_kind": "native",
+   "use_context": true
+  },
+  {
+   "n_questions": 4292,
+   "accuracy": 0.23578751164958062,
+   "brier": 0.6607484864040316,
+   "ece": 0.10961643320809544,
+   "ece_table": [
+    {
+     "bin": "0.0-0.1",
+     "n": 83,
+     "confidence": 0.0645623415324221,
+     "accuracy": 0.0963855421686747
+    },
+    {
+     "bin": "0.1-0.2",
+     "n": 663,
+     "confidence": 0.13821699692758085,
+     "accuracy": 0.14479638009049775
+    },
+    {
+     "bin": "0.2-0.3",
+     "n": 696,
+     "confidence": 0.2089166515939177,
+     "accuracy": 0.15517241379310345
+    },
+    {
+     "bin": "0.3-0.4",
+     "n": 1227,
+     "confidence": 0.3346668105833039,
+     "accuracy": 0.2665036674816626
+    },
+    {
+     "bin": "0.4-0.5",
+     "n": 0
+    },
+    {
+     "bin": "0.5-0.6",
+     "n": 1623,
+     "confidence": 0.5024202763673704,
+     "accuracy": 0.2914356130622304
+    },
+    {
+     "bin": "0.6-0.7",
+     "n": 0
+    },
+    {
+     "bin": "0.7-0.8",
+     "n": 0
+    },
+    {
+     "bin": "0.8-0.9",
+     "n": 0
+    },
+    {
+     "bin": "0.9-1.0",
+     "n": 0
+    }
+   ],
+   "latency_p50_ms": 25.69579350006279,
+   "latency_p95_ms": 59.556558200097214,
+   "invalid_rate": 0.0,
+   "per_family": {
+    "livedoor_topic": {
+     "n": 300,
+     "accuracy": 0.1
+    },
+    "claim_check_ja": {
+     "n": 600,
+     "accuracy": 0.225
+    },
+    "jnli": {
+     "n": 600,
+     "accuracy": 0.13
+    },
+    "fever_en": {
+     "n": 600,
+     "accuracy": 0.31166666666666665
+    },
+    "tweet_sentiment_en": {
+     "n": 300,
+     "accuracy": 0.32666666666666666,
+     "mae": 0.5114999626215633
+    },
+    "jcqa": {
+     "n": 300,
+     "accuracy": 0.20333333333333334
+    },
+    "fast_decisions_en:document_type": {
+     "n": 31,
+     "accuracy": 0.16129032258064516
+    },
+    "wrime_sentiment": {
+     "n": 600,
+     "accuracy": 0.31666666666666665,
+     "mae": 1.0587188491358541
+    },
+    "jsts": {
+     "n": 300,
+     "accuracy": 0.19333333333333333,
+     "mae": 1.2466793234602676
+    },
+    "fast_decisions_en:product_feedback": {
+     "n": 37,
+     "accuracy": 0.24324324324324326
+    },
+    "jcola": {
+     "n": 300,
+     "accuracy": 0.25
+    },
+    "fast_decisions_en:agent_handoff": {
+     "n": 30,
+     "accuracy": 0.5666666666666667
+    },
+    "fast_decisions_en:ticket_route": {
+     "n": 75,
+     "accuracy": 0.2
+    },
+    "fast_decisions_en:news_topic": {
+     "n": 29,
+     "accuracy": 0.034482758620689655
+    },
+    "fast_decisions_en:email_triage": {
+     "n": 136,
+     "accuracy": 0.3235294117647059
+    },
+    "fast_decisions_en:review_sentiment": {
+     "n": 27,
+     "accuracy": 0.25925925925925924
+    },
+    "fast_decisions_en:support_intent": {
+     "n": 27,
+     "accuracy": 0.07407407407407407
+    }
+   },
+   "model": "jev_ja_30m_cos",
+   "probability_kind": "native",
+   "use_context": true
+  }
+ ]
+}

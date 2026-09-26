@@ -96,6 +96,44 @@ pip install -e ".[onnx,notebook]"      # 大型モデル比較は追加で: pip 
 ```
 GitHub → Settings → Pages → Source を **GitHub Actions** にしておく。
 
+## 4'. Play の画面構成（v0.4）
+
+| 群 | タブ | 何ができるか |
+|---|---|---|
+| 使う | **情報収集** | プリセット（Jev／AI／ONNX／災害／噂の検証／教育）→ 収集 → JEV 整理 → 信頼性（重み編集）→ 類似群・地理照合・新着 → 証跡 JSON / CSV / **Markdown レポート** → 人手ラベル → JSONL |
+| 使う | **JEV チャット** | 文章を送ると現在の質問セットで判定して返す。`/q` で質問追加、`/ctx` で根拠、`/osint` で収集→整理、`/preset` |
+| 使う | 判断 Playground | 質問ビルダー（保存セット）、T／span-marker／head-cos 切替、実験ノート保存 |
+| 使う | 用途テンプレ | 6 用途の見本と複数テキスト一括判断 |
+| 研究 | 検証 | 根拠あり/なし、順序、否定形、選択肢除去、**モデル×手法マトリクス（HF モデル含む）**、時間 |
+| 研究 | バッチ評価 | 公開データ／自分の JSONL、family 絞り込み、進捗・中止、較正図、CSV、自動でノート記録 |
+| 研究 | **改良（端末内学習）** | 判断ヘッドをこの端末で再学習（gold 付き JSONL か情報収集の人手ラベル）。学習前後を未使用データで比較 → 保存 → 以後そのヘッドで判断。JSON で書き出し／読み込み |
+| 研究 | 実験ノート | 全実験の記録・メモ・CSV・2 実験の差分 |
+| 学ぶ・設定 | 仕組み・可視化 | 入力列・cos・logit→softmax・PCA・時間 |
+| 学ぶ・設定 | **モデルを追加** | HF の Transformers.js 対応モデル（NLI ゼロショット／文埋め込み）を JSON 1 行で追加 |
+| 学ぶ・設定 | 保存・設定 | 保存モデル、永続化、最新版へ更新、ダーク／文字サイズ、端末情報 |
+
+## 4''. 判断ヘッド v2 と「改良の仕組み」
+
+学習ログの精査で、**ヘッドの入力（ModernBERT-Ja の隠れ状態、|u|≈85）が正規化されておらず tanh が飽和して全選択肢に同じ logit を出していた**ことを確認した（pre-activation ≈117、logit の標準偏差 1e-7）。v0.4 でヘッドに LayerNorm を入れ（`DecisionHead(norm=True)`）、エンコーダ固定でヘッドだけを高速に学習する `train_head.py` を追加した（ベクトルをキャッシュし 1 epoch 数秒）。
+
+改良の入口は 3 段階：
+1. **端末内**（Play「改良」）：ヘッドのみ、数百件・数十秒。人手ラベルからその場で改良
+2. **PC ヘッドのみ**（`train_head.py`）：全データ・数十 epoch・数分
+3. **PC 全体**（`train_jev_ja.py`）：エンコーダごと更新、GPU 推奨
+
+既存モデルの改良は `jev_ja_mdeberta_base`（多言語 DeBERTa ＋ JEV ヘッド）と `convert_gliner2.py`（GLiNER2.5-multi の追加学習用データ変換）。
+
+## 4-3. 最初の実測（jev_ja_30m、CPU 学習：エンコーダ 1 epoch ＋ ヘッド v2 40 epoch）
+
+| データ | head（学習ヘッド） | cos（ゼロショット・同じエンコーダ） | 偶然 |
+|---|---|---|---|
+| JevBench-JA test（in-domain、2,940 state） | **精度 47.9%** / Brier 0.597 / ECE 0.026 | 23.6% / 0.661 / 0.110 | ≈30% |
+| JevBench-JA OOD（未見の質問文・否定形、2,700 state） | 33.6% / 0.768 / ECE 0.182 | **39.4%** / 0.653 / 0.129 | ≈30% |
+
+- in-domain では学習ヘッドがゼロショットの 2 倍。OOD では**逆転**し較正も崩れる ＝ 質問文を読まずに slot を暗記している（英語での Kotoba の報告を日本語で再現）。これが P1-f（拡張・否定形学習）の出発点
+- 端末内学習（Play「改良」）: jnli/jcola/wrime 96 件・6 epoch・14 秒で val 33.3% → 41.7%、Brier 0.712 → 0.658
+- 端末推論: 1 判断 26 ms（PC CPU）、スマホ実機 167 ms
+
 ## 5. 検証済みのこと
 
 - ブラウザ推論が Python と 3 桁一致（トークナイザ byte fallback を JS で再現）
@@ -107,7 +145,7 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 
 | 段階 | 内容 | 成果物 |
 |---|---|---|
-| P1-a（済） | 基盤：スキーマ・アダプタ・データ 10 family・学習・ONNX・Pages・OSINT フロー | このリポ |
+| P1-a（済） | 基盤：スキーマ・アダプタ・データ 10 family・学習・ONNX・Pages・OSINT フロー・チャット・端末内学習・HF モデル追加 | このリポ |
 | P1-b | JEV-JA 30m/70m を GPU で本学習（2〜3 ep、augment 0.7）。in-domain / OOD / 較正 / 端末 ms | 結果表、公開モデル |
 | P1-c | 比較：cos ゼロショット、NLI、GLiNER2.5-multi、open-jev（英語 family）、Qwen3 verbalized。fast_decisions で GLiNER2 と同条件 | リーダーボード |
 | P1-d | 既存 Jev 級モデルの改良：mDeBERTa-base に JEV ヘッド、GLiNER2.5-multi の追加学習 | 5 軸比較 |

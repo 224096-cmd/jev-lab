@@ -26,12 +26,13 @@ export const SOURCES = {
     name: "Wikipedia（日本語）", lang: "ja", kind: "reference",
     desc: "検索 API（origin=*）。地名・施設・出来事の基礎情報を根拠（context）として使う。",
     async run(q, opt) {
-      const r = await (await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=${opt.limit || 5}&format=json&origin=*`)).json();
+      const wl = opt.wikiLang || (opt.lang === "en" ? "en" : "ja");
+      const r = await (await fetch(`https://${wl}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=${opt.limit || 5}&format=json&origin=*`)).json();
       const out = [];
       for (const s of r.query.search) {
         let extract = "";
-        try { const e = await (await fetch(`https://ja.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(s.title)}&format=json&origin=*`)).json(); extract = Object.values(e.query.pages)[0].extract || ""; } catch { }
-        out.push(item("wikipedia", { title: s.title, text: (extract || s.snippet.replace(/<[^>]+>/g, "")).slice(0, 600), time: s.timestamp, url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(s.title)}` }));
+        try { const e = await (await fetch(`https://${wl}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(s.title)}&format=json&origin=*`)).json(); extract = Object.values(e.query.pages)[0].extract || ""; } catch { }
+        out.push(item("wikipedia", { title: s.title, text: (extract || s.snippet.replace(/<[^>]+>/g, "")).slice(0, 600), time: s.timestamp, url: `https://${wl}.wikipedia.org/wiki/${encodeURIComponent(s.title)}` }));
         await sleep(300);
       }
       return out;
@@ -41,7 +42,7 @@ export const SOURCES = {
     name: "Wikidata（構造化データ）", lang: "multi", kind: "reference",
     desc: "エンティティ検索 → 説明文と座標。地名の実在確認に。",
     async run(q, opt) {
-      const r = await (await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=ja&limit=${opt.limit || 5}&format=json&origin=*`)).json();
+      const r = await (await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=${opt.lang === "en" ? "en" : "ja"}&limit=${opt.limit || 5}&format=json&origin=*`)).json();
       return r.search.map(s => item("wikidata", { title: `${s.label} (${s.id})`, text: s.description || "", url: `https://www.wikidata.org/wiki/${s.id}` }));
     },
   },
@@ -133,4 +134,14 @@ export async function collect(query, sources, opt = {}, onProgress = () => {}) {
 
 export function evidencePack(query, items, judged) {
   return { query, collected_at: new Date().toISOString(), policy: "公開 API のみ・ログイン不要・個人の特定目的では使用しない", user_agent_note: UA_NOTE, items: items.map((it, i) => ({ ...it, judgement: judged?.[i] || null })) };
+}
+
+/* Markdown レポート（卒論・共有用） */
+export function markdownReport(query, items, judged, trust, clusters, geo) {
+  const L = [`# 情報収集レポート: ${query}`, "", `- 取得: ${new Date().toLocaleString()}`, `- 件数: ${items.filter(i => !i.error).length}`, `- 方針: 公開 API のみ・ログイン不要・個人の特定目的では使用しない`, ""];
+  if (geo?.length) L.push("## 地理照合の根拠", ...geo.map(g => "- " + g), "");
+  L.push("## 一覧（信頼性順）", "", "| # | 信頼性 | 種類 | 緊急 | 整合 | 出典 | 内容 | URL |", "|---|---|---|---|---|---|---|---|");
+  const order = [...items.keys()].filter(i => !items[i].error).sort((x, y) => (trust?.[y]?.score ?? -1) - (trust?.[x]?.score ?? -1));
+  for (const i of order) { const it = items[i], j = judged?.[i]; L.push(`| ${i} | ${trust?.[i] ? (trust[i].score * 100).toFixed(0) : ""} | ${j?.kind?.choice || ""} | ${j?.urgency ? j.urgency.score.toFixed(1) : ""} | ${j?.supported ? (j.supported.noul ? "✓" : "—") : ""} | ${it.source}${clusters?.[i] != null ? " (群" + clusters[i] + ")" : ""} | ${(it.title || "").replace(/\|/g, "/").slice(0, 60)} | ${it.url || ""} |`); }
+  return L.join("\n") + "\n";
 }

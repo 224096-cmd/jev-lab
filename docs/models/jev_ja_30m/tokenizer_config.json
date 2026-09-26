@@ -13,7 +13,7 @@
     "[Q]",
     "[OPT]"
   ],
-  "is_local": false,
+  "is_local": true,
   "keep_accents": true,
   "legacy": false,
   "local_files_only": false,
