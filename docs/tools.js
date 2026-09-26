@@ -9,6 +9,7 @@
    実装しないもの: Shodan・HIBP など API キーが要るもの、ユーザー名の横断照会など個人を対象にするもの、
    robots.txt を無視した収集、ログインが必要なサービスの自動操作 */
 
+import { apiFetch } from "./quota.js";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const enc = encodeURIComponent;
 
@@ -49,8 +50,7 @@ export const DORK_PRESETS = [
 export async function wayback(url) {
   const years = [2010, 2015, 2018, 2020, 2022, 2024, 2026]; const out = [];
   for (const y of years) {
-    try { const r = await (await fetch(`https://archive.org/wayback/available?url=${enc(url)}&timestamp=${y}0101`)).json(); const c = r.archived_snapshots?.closest; if (c?.available) out.push({ year: y, timestamp: c.timestamp, url: c.url }); } catch { }
-    await sleep(250);
+    try { const r = await apiFetch("wayback", `https://archive.org/wayback/available?url=${enc(url)}&timestamp=${y}0101`); const c = r.archived_snapshots?.closest; if (c?.available) out.push({ year: y, timestamp: c.timestamp, url: c.url }); } catch { }
   }
   const uniq = []; const seen = new Set(); for (const s of out) if (!seen.has(s.timestamp)) { seen.add(s.timestamp); uniq.push(s); }
   return { snapshots: uniq, first: uniq.length ? uniq.reduce((a, b) => a.timestamp < b.timestamp ? a : b) : null, browse: `https://web.archive.org/web/*/${url}` };
@@ -59,13 +59,13 @@ export async function wayback(url) {
 /* ---------- DNS（DoH） ---------- */
 export async function dns(domain, types = ["A", "AAAA", "MX", "NS", "TXT", "CNAME"]) {
   const out = {};
-  for (const t of types) { try { const r = await (await fetch(`https://dns.google/resolve?name=${enc(domain)}&type=${t}`)).json(); out[t] = (r.Answer || []).map(a => a.data); } catch (e) { out[t] = ["error"]; } await sleep(120); }
+  for (const t of types) { try { const r = await apiFetch("dns", `https://dns.google/resolve?name=${enc(domain)}&type=${t}`); out[t] = (r.Answer || []).map(a => a.data); } catch (e) { out[t] = ["error"]; } }
   return out;
 }
 
 /* ---------- RDAP（WHOIS 後継） ---------- */
 export async function rdap(domain) {
-  try { const r = await fetch(`https://rdap.org/domain/${enc(domain)}`); if (!r.ok) return { error: `RDAP ${r.status}（.jp は未対応。JPRS WHOIS: https://whois.jprs.jp/ ）`, whois_link: "https://whois.jprs.jp/" }; const j = await r.json();
+  try { let j; try { j = await apiFetch("rdap", `https://rdap.org/domain/${enc(domain)}`); } catch (e) { if (/^4\d\d/.test(String(e.message))) return { error: `RDAP ${e.message.slice(0, 3)}（.jp は未対応。JPRS WHOIS: https://whois.jprs.jp/ ）`, whois_link: "https://whois.jprs.jp/" }; throw e; }
     const ev = Object.fromEntries((j.events || []).map(e => [e.eventAction, e.eventDate])); const reg = (j.entities || []).find(e => (e.roles || []).includes("registrar")); const name = reg?.vcardArray?.[1]?.find(x => x[0] === "fn")?.[3];
     return { handle: j.ldhName || domain, registered: ev.registration, expires: ev.expiration, updated: ev["last changed"], registrar: name, status: j.status, nameservers: (j.nameservers || []).map(n => n.ldhName), age_days: ev.registration ? Math.round((Date.now() - new Date(ev.registration)) / 864e5) : null }; }
   catch (e) { return { error: String(e) }; }
@@ -73,7 +73,7 @@ export async function rdap(domain) {
 
 /* ---------- 証明書透明性ログ（サブドメイン） ---------- */
 export async function crtsh(domain) {
-  try { const r = await (await fetch(`https://crt.sh/?q=${enc("%." + domain)}&output=json`)).json(); const names = new Set(); for (const c of r) for (const n of String(c.name_value).split("\n")) if (!n.startsWith("*")) names.add(n.trim()); return { count: names.size, names: [...names].sort().slice(0, 200), issuers: [...new Set(r.map(c => c.issuer_name))].slice(0, 5) }; }
+  try { const r = await apiFetch("crtsh", `https://crt.sh/?q=${enc("%." + domain)}&output=json`); const names = new Set(); for (const c of r) for (const n of String(c.name_value).split("\n")) if (!n.startsWith("*")) names.add(n.trim()); return { count: names.size, names: [...names].sort().slice(0, 200), issuers: [...new Set(r.map(c => c.issuer_name))].slice(0, 5) }; }
   catch (e) { return { error: String(e) }; }
 }
 

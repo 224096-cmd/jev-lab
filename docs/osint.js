@@ -4,6 +4,7 @@
    - 対象は「出来事・地域・話題」。個人の特定・追跡・プロファイリングには使わない（UI に明記）
    - すべての取得結果に source / url / fetched_at を残し、証跡（evidence pack）として保存できる */
 
+import { apiFetch } from "./quota.js";
 const UA_NOTE = "jev-lab (research, https://github.com/224096-cmd/jev-lab)";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const item = (source, o) => ({ source, fetched_at: new Date().toISOString(), ...o });
@@ -15,9 +16,9 @@ export const SOURCES = {
     async run(q, opt) {
       const out = [];
       const code = opt.prefCode || "240000"; // 三重県
-      try { const w = await (await fetch(`https://www.jma.go.jp/bosai/warning/data/warning/${code}.json`)).json();
+      try { const w = await apiFetch("jma", `https://www.jma.go.jp/bosai/warning/data/warning/${code}.json`);
         out.push(item("jma_warning", { title: `気象警報・注意報（${w.publishingOffice}）`, text: w.headlineText || "（発表なし）", time: w.reportDatetime, url: `https://www.jma.go.jp/bosai/warning/#area_type=offices&area_code=${code.slice(0, 2)}0000`, official: true })); } catch (e) { out.push(item("jma_warning", { error: String(e) })); }
-      try { const qs = await (await fetch("https://www.jma.go.jp/bosai/quake/data/list.json")).json();
+      try { const qs = await apiFetch("jma", "https://www.jma.go.jp/bosai/quake/data/list.json");
         for (const e of qs.slice(0, opt.limit || 5)) out.push(item("jma_quake", { title: `地震情報 ${e.anm || ""} M${e.mag || "?"} 最大震度${e.maxi || "?"}`, text: `${e.at || ""} ${e.anm || ""} 深さ${e.dep ?? "?"}km マグニチュード${e.mag ?? "?"} 最大震度${e.maxi ?? "?"}${e.ttl ? " / " + e.ttl : ""}`, time: e.at, url: "https://www.jma.go.jp/bosai/map.html#contents=earthquake_map", official: true })); } catch (e) { out.push(item("jma_quake", { error: String(e) })); }
       return out;
     },
@@ -27,11 +28,11 @@ export const SOURCES = {
     desc: "検索 API（origin=*）。地名・施設・出来事の基礎情報を根拠（context）として使う。",
     async run(q, opt) {
       const wl = opt.wikiLang || (opt.lang === "en" ? "en" : "ja");
-      const r = await (await fetch(`https://${wl}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=${opt.limit || 5}&format=json&origin=*`)).json();
+      const r = await apiFetch("wikipedia", `https://${wl}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=${opt.limit || 5}&format=json&origin=*`);
       const out = [];
       for (const s of r.query.search) {
         let extract = "";
-        try { const e = await (await fetch(`https://${wl}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(s.title)}&format=json&origin=*`)).json(); extract = Object.values(e.query.pages)[0].extract || ""; } catch { }
+        try { const e = await apiFetch("wikipedia", `https://${wl}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(s.title)}&format=json&origin=*`); extract = Object.values(e.query.pages)[0].extract || ""; } catch { }
         out.push(item("wikipedia", { title: s.title, text: (extract || s.snippet.replace(/<[^>]+>/g, "")).slice(0, 600), time: s.timestamp, url: `https://${wl}.wikipedia.org/wiki/${encodeURIComponent(s.title)}` }));
         await sleep(300);
       }
@@ -42,7 +43,7 @@ export const SOURCES = {
     name: "Wikidata（構造化データ）", lang: "multi", kind: "reference",
     desc: "エンティティ検索 → 説明文と座標。地名の実在確認に。",
     async run(q, opt) {
-      const r = await (await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=${opt.lang === "en" ? "en" : "ja"}&limit=${opt.limit || 5}&format=json&origin=*`)).json();
+      const r = await apiFetch("wikidata", `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=${opt.lang === "en" ? "en" : "ja"}&limit=${opt.limit || 5}&format=json&origin=*`);
       return r.search.map(s => item("wikidata", { title: `${s.label} (${s.id})`, text: s.description || "", url: `https://www.wikidata.org/wiki/${s.id}` }));
     },
   },
@@ -52,7 +53,7 @@ export const SOURCES = {
     async run(q, opt) {
       // 出来事語（大雨・地震…）を除いた地名だけで検索し、日本語なら日本国内に限る（「津市 大雨」→「津市」）
       const place = q.replace(/(大雨|豪雨|地震|津波|洪水|氾濫|冠水|浸水|土砂|火災|台風|警報|注意報|避難|停電|断水|事故|噴火|大雪|竜巻|高潮|被害|速報|デマ|噂)/g, " ").replace(/\s+/g, " ").trim() || q;
-      const r = await (await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=${opt.limit || 3}&accept-language=ja${opt.lang === "ja" ? "&countrycodes=jp" : ""}`)).json();
+      const r = await apiFetch("nominatim", `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=${opt.limit || 3}&accept-language=ja${opt.lang === "ja" ? "&countrycodes=jp" : ""}`);
       return r.map(p => item("nominatim", { title: p.display_name, text: `lat ${p.lat}, lon ${p.lon}, type ${p.type}, class ${p.class}`, lat: +p.lat, lon: +p.lon, url: `https://www.openstreetmap.org/${p.osm_type}/${p.osm_id}` }));
     },
   },
@@ -60,7 +61,7 @@ export const SOURCES = {
     name: "Bluesky 公開投稿", lang: "multi", kind: "social",
     desc: "public.api.bsky.app の公開検索（ログイン不要）。一般投稿の速報性・拡散表現の検証に。",
     async run(q, opt) {
-      const r = await (await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${encodeURIComponent(q)}&limit=${opt.limit || 10}${opt.lang ? "&lang=" + opt.lang : ""}`)).json();
+      const r = await apiFetch("bluesky", `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${encodeURIComponent(q)}&limit=${opt.limit || 10}${opt.lang ? "&lang=" + opt.lang : ""}`);
       return (r.posts || []).map(p => item("bluesky", { title: `@${p.author.handle}`, text: p.record?.text || "", time: p.record?.createdAt, url: `https://bsky.app/profile/${p.author.handle}/post/${p.uri.split("/").pop()}`, likes: p.likeCount, reposts: p.repostCount }));
     },
   },
@@ -68,7 +69,7 @@ export const SOURCES = {
     name: "GDELT（世界のニュース見出し）", lang: "multi", kind: "news",
     desc: "api.gdeltproject.org DOC API。5 秒に 1 回まで。英語・日本語の報道を横断。",
     async run(q, opt) {
-      const r = await (await fetch(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=${opt.limit || 10}&format=json${opt.lang === "ja" ? "&sourcelang=japanese" : ""}`)).json();
+      const r = await apiFetch("gdelt", `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=${opt.limit || 10}&format=json${opt.lang === "ja" ? "&sourcelang=japanese" : ""}`);
       return (r.articles || []).map(a => item("gdelt", { title: a.title, text: a.title, time: a.seendate, url: a.url, domain: a.domain, lang: a.language }));
     },
   },
@@ -76,7 +77,7 @@ export const SOURCES = {
     name: "Hacker News（技術系・英語）", lang: "en", kind: "social",
     desc: "hn.algolia.com 検索。英語モデル（open-jev 等）の比較用。",
     async run(q, opt) {
-      const r = await (await fetch(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&hitsPerPage=${opt.limit || 10}`)).json();
+      const r = await apiFetch("hn", `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&hitsPerPage=${opt.limit || 10}`);
       return r.hits.map(h => item("hn", { title: h.title || h.story_title || "", text: (h.story_text || h.comment_text || h.title || "").replace(/<[^>]+>/g, "").slice(0, 600), time: h.created_at, url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, points: h.points }));
     },
   },
@@ -85,7 +86,7 @@ export const SOURCES = {
     desc: "mastodon.social の公開タグタイムライン（ログイン不要）。キーワードの先頭語をタグとして使う。",
     async run(q, opt) {
       const tag = q.replace(/^#/, "").split(/[\s,]+/)[0].replace(/[^\p{L}\p{N}_]/gu, ""); if (!tag) return [];
-      const r = await (await fetch(`https://mastodon.social/api/v1/timelines/tag/${encodeURIComponent(tag)}?limit=${Math.min(40, opt.limit || 10)}`)).json();
+      const r = await apiFetch("mastodon", `https://mastodon.social/api/v1/timelines/tag/${encodeURIComponent(tag)}?limit=${Math.min(40, opt.limit || 10)}`);
       return (Array.isArray(r) ? r : []).map(p => item("mastodon", { title: `@${p.account?.acct}`, text: (p.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600), time: p.created_at, url: p.url, likes: p.favourites_count, reposts: p.reblogs_count, lang: p.language }));
     },
   },
@@ -93,7 +94,7 @@ export const SOURCES = {
     name: "Stack Exchange（技術 Q&A）", lang: "en", kind: "forum",
     desc: "api.stackexchange.com（Stack Overflow）。技術的な話題の一次的な質問・回答。",
     async run(q, opt) {
-      const r = await (await fetch(`https://api.stackexchange.com/2.3/search/advanced?q=${encodeURIComponent(q)}&site=stackoverflow&pagesize=${opt.limit || 10}&order=desc&sort=relevance`)).json();
+      const r = await apiFetch("stackexchange", `https://api.stackexchange.com/2.3/search/advanced?q=${encodeURIComponent(q)}&site=stackoverflow&pagesize=${opt.limit || 10}&order=desc&sort=relevance`);
       return (r.items || []).map(x => item("stackexchange", { title: x.title, text: x.title, time: new Date(x.creation_date * 1000).toISOString(), url: x.link, likes: x.score, answered: x.is_answered }));
     },
   },
@@ -101,7 +102,7 @@ export const SOURCES = {
     name: "GitHub（リポジトリ）", lang: "multi", kind: "code",
     desc: "api.github.com の公開検索（未認証 10 回/分）。実装・ツールの一次情報。",
     async run(q, opt) {
-      const r = await (await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&per_page=${opt.limit || 10}`)).json();
+      const r = await apiFetch("github", `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&per_page=${opt.limit || 10}`);
       return (r.items || []).map(x => item("github", { title: x.full_name, text: `${x.description || ""} ★${x.stargazers_count} ${x.language || ""}`, time: x.pushed_at, url: x.html_url, likes: x.stargazers_count }));
     },
   },
@@ -109,7 +110,7 @@ export const SOURCES = {
     name: "Crossref（論文・DOI）", lang: "multi", kind: "paper",
     desc: "api.crossref.org。査読論文・プレプリントの書誌（一次情報）。",
     async run(q, opt) {
-      const r = await (await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=${opt.limit || 10}&sort=relevance&select=DOI,title,author,issued,container-title,URL,abstract`)).json();
+      const r = await apiFetch("crossref", `https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=${opt.limit || 10}&sort=relevance&select=DOI,title,author,issued,container-title,URL,abstract`);
       return (r.message?.items || []).map(x => item("crossref", { title: (x.title || [""])[0], text: `${(x.author || []).slice(0, 3).map(a => a.family).join(", ")} — ${(x["container-title"] || [""])[0]} ${(x.abstract || "").replace(/<[^>]+>/g, "").slice(0, 300)}`, time: x.issued?.["date-parts"]?.[0]?.join("-"), url: x.URL, official: false }));
     },
   },
@@ -117,7 +118,7 @@ export const SOURCES = {
     name: "arXiv（プレプリント）", lang: "en", kind: "paper",
     desc: "export.arxiv.org API（Atom）。AI 系の最新論文。",
     async run(q, opt) {
-      const t = await (await fetch(`https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(q)}&max_results=${opt.limit || 10}&sortBy=submittedDate&sortOrder=descending`)).text();
+      const t = await apiFetch("arxiv", `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(q)}&max_results=${opt.limit || 10}&sortBy=submittedDate&sortOrder=descending`, { parse: "text" });
       const doc = new DOMParser().parseFromString(t, "text/xml"); return [...doc.querySelectorAll("entry")].map(e => item("arxiv", { title: e.querySelector("title")?.textContent.replace(/\s+/g, " ").trim(), text: (e.querySelector("summary")?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500), time: e.querySelector("published")?.textContent, url: e.querySelector("id")?.textContent }));
     },
   },
@@ -125,7 +126,7 @@ export const SOURCES = {
     name: "Semantic Scholar（論文）", lang: "en", kind: "paper",
     desc: "api.semanticscholar.org（鍵なしは低頻度）。被引用数つき。",
     async run(q, opt) {
-      const r = await (await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${opt.limit || 10}&fields=title,year,citationCount,abstract,url,authors`)).json();
+      const r = await apiFetch("semanticscholar", `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${opt.limit || 10}&fields=title,year,citationCount,abstract,url,authors`);
       return (r.data || []).map(x => item("semanticscholar", { title: x.title, text: `${(x.authors || []).slice(0, 3).map(a => a.name).join(", ")} (${x.year}) 被引用 ${x.citationCount} — ${(x.abstract || "").slice(0, 300)}`, time: x.year ? `${x.year}-01-01` : "", url: x.url, likes: x.citationCount }));
     },
   },
@@ -177,7 +178,7 @@ export async function collect(query, sources, opt = {}, onProgress = () => {}) {
     onProgress(`${s.name} を取得中…`);
     try { const items = await s.run(query, opt); all.push(...items); }
     catch (e) { all.push(item(k, { error: String(e) })); }
-    if (k === "gdelt") await sleep(5000); else if (k === "github") await sleep(3000); else await sleep(1000);
+    /* 呼び出し間隔・無料枠・キャッシュは quota.js の apiFetch が管理する */
   }
   onProgress("");
   return all;

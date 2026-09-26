@@ -12,11 +12,16 @@ ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 1);
 /* ---------------- IndexedDB ---------------- */
 export const store = {
   db: null,
-  async open() { if (this.db) return this.db; return this.db = await new Promise((ok, ng) => { const r = indexedDB.open("jev-lab", 2); r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains("files")) db.createObjectStore("files"); if (!db.objectStoreNames.contains("experiments")) db.createObjectStore("experiments", { keyPath: "id" }); }; r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
+  async open() { if (this.db) return this.db; return this.db = await new Promise((ok, ng) => { const r = indexedDB.open("jev-lab", 3); r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains("files")) db.createObjectStore("files"); if (!db.objectStoreNames.contains("experiments")) db.createObjectStore("experiments", { keyPath: "id" }); if (!db.objectStoreNames.contains("cache")) db.createObjectStore("cache"); }; r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
   async get(k) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("files").objectStore("files").get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
   async put(k, v) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("files", "readwrite").objectStore("files").put(v, k); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
   async del(k) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("files", "readwrite").objectStore("files").delete(k); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
   async keys() { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("files").objectStore("files").getAllKeys(); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
+  /* API 応答キャッシュ（quota.js） */
+  async cacheGet(k) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("cache").objectStore("cache").get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
+  async cachePut(k, v) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("cache", "readwrite").objectStore("cache").put(v, k); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
+  async cacheClear() { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("cache", "readwrite").objectStore("cache").clear(); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
+  async cacheCount() { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("cache").objectStore("cache").count(); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
   /* 実験ノート */
   async expPut(e) { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("experiments", "readwrite").objectStore("experiments").put(e); r.onsuccess = () => ok(); r.onerror = () => ng(r.error); }); },
   async expAll() { const db = await this.open(); return new Promise((ok, ng) => { const r = db.transaction("experiments").objectStore("experiments").getAll(); r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); },
