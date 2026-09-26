@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JEV Lab</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b6e99">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+</head>
+<body>
+<header><h1>JEV Lab</h1>
+<nav><a href="index.html" class="on">解説・結果</a><a href="play.html">Play（端末内推論）</a></nav></header>
+<main>
+<div class="card">
+<p>Jev 級（型付き判断）モデルを日本語で構築・比較する研究環境。学習と大型モデルとの比較は PC（VS Code）で行い、結果とスマホで動く JEV-JA をこのページで公開する。</p>
+<p class="muted small">本ページは研究・教材用のプロトタイプ。防災の判断は必ず自治体の発令情報を優先すること。</p>
+</div>
+
+<div class="card">
+<h2>ベンチ結果（PC で実行 → results/ に保存）</h2>
+<label>結果ファイル</label><select id="res"></select>
+<div id="res-out" class="muted">results/index.json がありません（<code>python -m jev_lab.bench.run ... --publish</code> で生成）</div>
+</div>
+
+<div class="card">
+<h2>1. Jev 級モデルの形</h2>
+<p>1 つの状況 <em>s</em> に N 個の型付き質問を載せ、<strong>1 回の forward</strong> で質問ごとの較正済み確率分布を返す。生成しないので構造化出力エラーは構造的に 0。</p>
+<div class="formula" id="f1"></div>
+<ul><li><b>Choice</b>: options 上の分布 → argmax</li><li><b>Score</b>: 順序段階上の分布 → 期待値（段階の間に落ちることがある）</li><li><b>Noul</b>: {yes, no} 上の分布 → p(yes)</li></ul>
+<h2>2. JEV-JA の読み出しヘッド</h2>
+<div class="formula" id="f2"></div>
+<p>option の<strong>テキストトークンの平均</strong>を読む（span pool）。新設マーカートークンの hidden state を読む方式（marker pool）は事前学習の構造を持たないため学習しにくいことが英語で報告されている。<code>config/models.yaml</code> の <code>pool</code> を切り替えて日本語で再検証する。</p>
+<h2>3. 損失と較正</h2>
+<div class="formula" id="f3"></div>
+<p>温度 <em>T</em> は検証データで NLL 最小化により事後推定。指標は精度・Brier・ECE（top-label 信頼度を 10 等幅ビンで集計。空ビンは除外し補間しない）。</p>
+<h2>4. native と verbalized</h2>
+<p><span class="tag">native</span> モデル自身の分布（エンコーダ系・JEV-JA）。<span class="tag">verbalized</span> LLM に確率を<em>書かせた</em>もの。別物として扱い、較正の主張を混ぜない。</p>
+<h2>5. 端末内実行</h2>
+<p>JEV-JA はエンコーダを ONNX（int8 動的量子化）に、ヘッドを ONNX に書き出し、ブラウザの ONNX Runtime Web（WASM、対応端末では WebGPU）で実行する。トークナイズは Transformers.js が同梱の tokenizer.json を読む。Python 側と同じ手順（[CLS][STATE] s [Q] instr [OPT] o …）で入力列を作り、スパン平均を JS で計算する。</p>
+</div>
+</main>
+<script>
+const K=(el,tex)=>katex.render(tex,document.querySelector(el),{displayMode:true,throwOnError:false});
+K('#f1',String.raw`s \;+\; \{\,q_j=(\text{instr}_j,\,O_j)\,\}_{j=1}^{N} \;\longrightarrow\; \{\,p_j \in \Delta^{|O_j|-1}\,\}_{j=1}^{N}\quad(\text{1 forward})`);
+K('#f2',String.raw`H=\mathrm{Enc}(\ldots),\quad u_j=\overline{H_{\text{instr}_j}},\; v_{jk}=\overline{H_{o_{jk}}},\quad z_{jk}=w^{\top}\tanh(W[u_j;v_{jk};u_j\odot v_{jk}]),\quad p_{jk}=\frac{e^{z_{jk}/T}}{\sum_{k'}e^{z_{jk'}/T}}`);
+K('#f3',String.raw`\mathcal{L}=-\log p_{j,y}\;+\;\lambda\sum_k\big(p_{jk}-\mathbb{1}[k=y]\big)^2,\qquad \mathrm{ECE}=\sum_b \frac{|B_b|}{n}\,\big|\mathrm{acc}(B_b)-\mathrm{conf}(B_b)\big|`);
+(async()=>{try{const idx=await (await fetch('results/index.json')).json();const sel=document.querySelector('#res');idx.files.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;sel.appendChild(o)});
+const show=async()=>{const d=await (await fetch('results/'+sel.value)).json();let h=`<p class="muted small">data: ${d.data}</p><table><tr><th>モデル</th><th>種別</th><th>精度</th><th>Brier</th><th>ECE</th><th>p50 ms</th><th>p95 ms</th><th>invalid</th><th>ctx</th></tr>`;
+for(const r of d.results)h+=`<tr><td>${r.model}</td><td><span class="tag">${r.probability_kind}</span></td><td>${(r.accuracy*100).toFixed(1)}%</td><td>${r.brier?.toFixed(3)}</td><td>${r.ece?.toFixed(3)}</td><td>${r.latency_p50_ms?.toFixed(0)}</td><td>${r.latency_p95_ms?.toFixed(0)}</td><td>${(r.invalid_rate*100).toFixed(0)}%</td><td>${r.use_context?'あり':'なし'}</td></tr>`;
+h+='</table>';for(const r of d.results){h+=`<details><summary>${r.model} — family 別 / 較正ビン</summary><table><tr><th>family</th><th>n</th><th>精度</th><th>MAE</th></tr>`;for(const[k,v]of Object.entries(r.per_family||{}))h+=`<tr><td>${k}</td><td>${v.n}</td><td>${(v.accuracy*100).toFixed(1)}%</td><td>${v.mae?.toFixed(2)??''}</td></tr>`;h+='</table><table><tr><th>bin</th><th>n</th><th>conf</th><th>acc</th></tr>';for(const b of r.ece_table||[])if(b.n)h+=`<tr><td>${b.bin}</td><td>${b.n}</td><td>${b.confidence.toFixed(2)}</td><td>${b.accuracy.toFixed(2)}</td></tr>`;h+='</table></details>'}
+document.querySelector('#res-out').innerHTML=h};sel.onchange=show;if(idx.files.length){sel.value=idx.files[0];show()}}catch(e){}})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body></html>

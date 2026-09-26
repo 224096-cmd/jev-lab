@@ -1,0 +1,16 @@
+[project]
+name = "jev-lab"
+version = "0.1.0"
+description = "JEV Lab: Jev 級（型付き判断）モデルの比較・学習・解説環境（日本語）"
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.6", "pyyaml>=6",
+  "torch>=2.2", "transformers>=4.48", "sentence-transformers>=3.0", "huggingface_hub>=0.23",
+  "numpy>=1.26",
+]
+[project.optional-dependencies]
+gliner = ["gliner2"]
+onnx = ["onnx", "onnxruntime"]
+notebook = ["jupyter", "matplotlib"]
+[tool.setuptools.packages.find]
+include = ["jev_lab*"]

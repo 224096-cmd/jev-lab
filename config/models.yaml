@@ -1,0 +1,89 @@
+# JEV Lab モデル設定
+# VS Code で編集して切替。HF id・アダプタ種別・デバイスだけ変えれば同じ IF で比較できる。
+# device: "cuda" (RTX 3060) / "cpu" / "auto"
+
+default: jev_ja_30m
+
+models:
+
+  # ---- Jev 級・参照実装（英語）--------------------------------------------
+  open_jev_deberta:
+    adapter: open_jev
+    hf_id: com-kotobalabs/open-jev-deberta-v3-large   # Apache-2.0, 435M
+    device: auto
+    language: en
+    note: Kotoba Labs の Jev 形再現。span-pool head, CE+Brier, 温度は同梱 config
+
+  # ---- 隣接クラス・分類ヘッド（ラベル集合を実行時に渡す）-------------------
+  gliner2_decide:
+    adapter: gliner2
+    hf_id: fastino/GLiNER2.5-Decide        # Apache-2.0, 340M, English
+    device: auto
+    language: en
+    normalize: softmax_over_scores          # 多ラベル score を分布に直す方法（較正値を左右する）
+  gliner2_multi:
+    adapter: gliner2
+    hf_id: fastino/GLiNER2.5-multi-Decide  # Apache-2.0, 287M, multilingual
+    device: auto
+    language: multi
+    normalize: softmax_over_scores
+
+  # ---- ゼロショット NLI ベースライン（学習なし）-----------------------------
+  nli_mdeberta:
+    adapter: nli_zeroshot
+    hf_id: MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7  # MIT, 278M
+    device: auto
+    language: multi
+    hypothesis_template: "この文の答えは「{}」である。"
+
+  # ---- LLM に確率を書かせる方式（verbalized）------------------------------
+  llm_qwen3_0_6b:
+    adapter: llm_verbalized
+    hf_id: Qwen/Qwen3-0.6B                 # Apache-2.0
+    device: auto
+    language: multi
+    max_new_tokens: 256
+    enable_thinking: false
+  llm_qwen3_1_7b:
+    adapter: llm_verbalized
+    hf_id: Qwen/Qwen3-1.7B
+    device: auto
+    language: multi
+    max_new_tokens: 256
+    enable_thinking: false
+
+  # ---- 独自 JEV-JA（本命・卒論成果物）--------------------------------------
+  jev_ja_30m:
+    adapter: jev_ja
+    backbone: sbintuitions/modernbert-ja-30m   # MIT, 37M。ruri-v3-30m (Apache) でも可
+    head_path: checkpoints/jev_ja_30m          # 学習後に生成。無ければ未学習ヘッドで動く
+    pool: span            # span = option/instr の text token 平均（Kotoba で効いた方式）
+                          # marker = [OPT] marker の hidden state（学習しないことが報告済み。比較用）
+    max_length: 1024
+    device: auto
+    language: ja
+  jev_ja_70m:
+    adapter: jev_ja
+    backbone: sbintuitions/modernbert-ja-70m
+    head_path: checkpoints/jev_ja_70m
+    pool: span
+    max_length: 1024
+    device: auto
+    language: ja
+  jev_ja_ruri30m:
+    adapter: jev_ja
+    backbone: cl-nagoya/ruri-v3-pt-30m         # Apache-2.0 事前学習版（fine-tune 前）
+    head_path: checkpoints/jev_ja_ruri30m
+    pool: span
+    max_length: 1024
+    device: auto
+    language: ja
+  jev_ja_deberta_large:
+    adapter: jev_ja
+    backbone: globis-university/deberta-v3-japanese-large   # ライセンス要確認（CC-BY-SA 系）
+    head_path: checkpoints/jev_ja_deberta_large
+    pool: span
+    max_length: 512
+    device: cuda
+    language: ja
+    note: Kotoba の「DeBERTa-large が最良」を日本語で検証する用。PC/LAN 専用

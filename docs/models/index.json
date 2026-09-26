@@ -1,0 +1,10 @@
+{
+  "models": [
+    {
+      "name": "jev_ja_30m",
+      "size_mb": 45.4,
+      "trained": false,
+      "backbone": "sbintuitions/modernbert-ja-30m"
+    }
+  ]
+}

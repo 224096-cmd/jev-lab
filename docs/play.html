@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JEV Lab — Play</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b6e99">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>JEV Lab</h1>
+<nav><a href="index.html">解説・結果</a><a href="play.html" class="on">Play（端末内推論）</a></nav>
+<span class="muted" id="status"></span></header>
+<main>
+<div class="card">
+ <div class="grid3">
+  <div><label>モデル</label><select id="model"></select></div>
+  <div><label>状態</label><div id="minfo" class="muted">未ロード</div></div>
+  <div><label>&nbsp;</label><button class="primary" id="load">モデルを読み込む</button></div>
+ </div>
+ <p class="muted small" id="storage"></p>
+</div>
+
+<div class="tabs"><button data-t="play" class="on">Playground</button><button data-t="triage">情報トリアージ</button></div>
+
+<section id="t-play">
+<div class="row"><div class="card">
+<label>state（状況）</label><textarea id="p-state">津市栗真町屋町の自宅2階にいます。窓から見ると道路が30cmくらい冠水し、雨はまだ強いです。足首を捻挫していて走れません。</textarea>
+<label>context（根拠。1 行 1 件、空なら無し）</label><textarea id="p-ctx">栗真町屋町周辺は志登茂川の洪水浸水想定区域（想定最大 0.5〜3.0m）
+最寄りの指定避難所: 栗真小学校（洪水対応◯、標高 4m、徒歩 12 分）</textarea>
+<label>questions（JSON）</label><textarea id="p-q" style="min-height:190px">[
+ {"type":"choice","id":"hazard","instructions":"この状況で主に起きている災害は何か","options":["洪水・内水氾濫","津波","土砂災害","地震の建物被害","不明"]},
+ {"type":"score","id":"urgency","instructions":"今すぐ移動を始める必要性","levels":["低い","やや低い","中程度","高い","非常に高い"]},
+ {"type":"noul","id":"vertical","instructions":"屋外への水平避難より、その場で上階にとどまる垂直避難が適切か"}
+]</textarea>
+<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-save">結果を JSON で保存</button></p>
+</div><div class="card" id="p-out"><span class="muted">モデルを読み込んでから「判断する」</span></div></div>
+</section>
+
+<section id="t-triage" class="hidden">
+<div class="card">
+<label>テキスト（1 行 1 件）</label><textarea id="t-texts" style="min-height:140px">【拡散希望】津市の美杉小学校が津波で完全に水没しました！生徒が取り残されています！RTお願いします！
+安濃川の橋のあたり、水位がかなり上がってる。近くの人は気をつけて。
+津市役所: 12時00分、津市全域に高齢者等避難（警戒レベル3）を発令しました。</textarea>
+<label>questions（JSON）</label><textarea id="t-q">[
+ {"type":"choice","id":"kind","instructions":"投稿の種類","options":["公式発表","現地報告","救助要請","拡散依頼","不明"]},
+ {"type":"score","id":"urgency","instructions":"対応の緊急度","levels":["0","1","2","3","4","5"]},
+ {"type":"noul","id":"geo_contra","instructions":"内容が地理的に矛盾しているか"}
+]</textarea>
+<label>並び替えキー（question id）</label><input id="t-sort" value="urgency">
+<p><button class="primary" id="t-run" disabled>一括判断</button></p></div>
+<div class="card" id="t-out"></div>
+</section>
+</main>
+<script type="module">
+import { JevJa } from "./jev.js";
+const $ = s => document.querySelector(s); let jev = null; let last = null;
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on')); b.classList.add('on'); ['play','triage'].forEach(t => $('#t-'+t).classList.toggle('hidden', t !== b.dataset.t)); });
+const idx = await (await fetch('models/index.json')).json();
+for (const m of idx.models) { const o = document.createElement('option'); o.value = m.name; o.textContent = `${m.name} — ${m.size_mb} MB ${m.trained ? '(学習済)' : '(未学習)'}`; $('#model').appendChild(o); }
+async function storageInfo(){ try{ const e = await navigator.storage.estimate(); const p = await navigator.storage.persisted?.(); $('#storage').textContent = `ストレージ: 使用 ${(e.usage/1e6).toFixed(0)} MB / 上限 ${(e.quota/1e6).toFixed(0)} MB ・ 永続化 ${p?'済':'未'}`; }catch{} }
+storageInfo();
+$('#load').onclick = async () => {
+  try { await navigator.storage.persist?.(); } catch {}
+  $('#p-run').disabled = $('#t-run').disabled = true; $('#load').disabled = true;
+  try { jev = await new JevJa($('#model').value).load(s => $('#status').textContent = s);
+    $('#minfo').textContent = `${jev.name} / ${jev.backend} / pool=${jev.cfg.pool} / T=${jev.cfg.temperature}`; $('#p-run').disabled = $('#t-run').disabled = false; }
+  catch (e) { $('#minfo').textContent = 'ロード失敗: ' + e.message; }
+  $('#load').disabled = false; storageInfo();
+};
+const ctx = () => $('#p-ctx').value.split('\n').map(s => s.trim()).filter(Boolean);
+function render(res){ let h = `<p><b>${res.model}</b> <span class="tag">${res.probability_kind}</span> <span class="tag">${res.backend}</span> <span class="muted">${res.latency_ms.toFixed(0)} ms / ${res.tokens} tok</span></p>`;
+ for (const a of res.answers) { const d = a.distribution; h += `<p><b>${a.id}</b>: `; if (a.type==='choice') h += `<b>${a.choice}</b> (${(a.confidence*100).toFixed(0)}%)`; else if (a.type==='score') h += `期待値 <b>${a.score.toFixed(2)}</b> / 最頻 ${a.level}`; else h += `<b>${a.noul?'yes':'no'}</b> p(yes)=${a.p_yes.toFixed(2)}`; h += '</p><table>';
+  d.labels.forEach((l,i) => h += `<tr><td style="width:32%">${l}</td><td><div class="bar"><i style="width:${d.probabilities[i]*100}%"></i></div></td><td style="width:58px">${(d.probabilities[i]*100).toFixed(1)}%</td></tr>`); h += '</table>'; } return h; }
+$('#p-run').onclick = async () => { $('#status').textContent = '推論中…'; try { last = await jev.decide($('#p-state').value, JSON.parse($('#p-q').value), ctx()); last.input = { state: $('#p-state').value, context: ctx(), questions: JSON.parse($('#p-q').value) }; $('#p-out').innerHTML = render(last); } catch (e) { $('#p-out').textContent = e.message; } $('#status').textContent = ''; };
+$('#p-save').onclick = () => { if (!last) return; const b = new Blob([JSON.stringify(last, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `decide-${Date.now()}.json`; a.click(); };
+$('#t-run').onclick = async () => { $('#status').textContent = '一括判断中…'; const qs = JSON.parse($('#t-q').value); const texts = $('#t-texts').value.split('\n').filter(Boolean); const rows = [];
+ for (const t of texts) { const r = await jev.decide(t, qs); rows.push({ text: t, r }); }
+ const key = $('#t-sort').value; if (key) rows.sort((x, y) => { const g = r => { const a = r.answers.find(a => a.id === key) || {}; return a.score ?? a.p_yes ?? a.confidence ?? 0; }; return g(y.r) - g(x.r); });
+ let h = '<table><tr><th>テキスト</th>' + qs.map(q => `<th>${q.id}</th>`).join('') + '<th>ms</th></tr>';
+ for (const { text, r } of rows) { h += `<tr><td>${text}</td>`; for (const a of r.answers) h += '<td>' + (a.type==='choice' ? `${a.choice}<br><span class="muted">${(a.confidence*100).toFixed(0)}%</span>` : a.type==='score' ? a.score.toFixed(2) : `${a.noul?'yes':'no'} (${a.p_yes.toFixed(2)})`) + '</td>'; h += `<td>${r.latency_ms.toFixed(0)}</td></tr>`; }
+ $('#t-out').innerHTML = h + '</table>'; $('#status').textContent = ''; };
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body></html>

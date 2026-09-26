@@ -1,0 +1,7 @@
+checkpoints/
+reports/
+rag/index_*/
+__pycache__/
+*.pyc
+.venv/
+docs/models/*/encoder.onnx.fp32
