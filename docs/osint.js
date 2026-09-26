@@ -50,7 +50,9 @@ export const SOURCES = {
     name: "OpenStreetMap Nominatim（地名→座標）", lang: "multi", kind: "geo",
     desc: "地名の実在と座標。1 秒 1 リクエストの利用規約。ハザード DB との照合の入口。",
     async run(q, opt) {
-      const r = await (await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${opt.limit || 3}&accept-language=ja`)).json();
+      // 出来事語（大雨・地震…）を除いた地名だけで検索し、日本語なら日本国内に限る（「津市 大雨」→「津市」）
+      const place = q.replace(/(大雨|豪雨|地震|津波|洪水|氾濫|冠水|浸水|土砂|火災|台風|警報|注意報|避難|停電|断水|事故|噴火|大雪|竜巻|高潮|被害|速報|デマ|噂)/g, " ").replace(/\s+/g, " ").trim() || q;
+      const r = await (await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=${opt.limit || 3}&accept-language=ja${opt.lang === "ja" ? "&countrycodes=jp" : ""}`)).json();
       return r.map(p => item("nominatim", { title: p.display_name, text: `lat ${p.lat}, lon ${p.lon}, type ${p.type}, class ${p.class}`, lat: +p.lat, lon: +p.lon, url: `https://www.openstreetmap.org/${p.osm_type}/${p.osm_id}` }));
     },
   },
@@ -76,6 +78,55 @@ export const SOURCES = {
     async run(q, opt) {
       const r = await (await fetch(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&hitsPerPage=${opt.limit || 10}`)).json();
       return r.hits.map(h => item("hn", { title: h.title || h.story_title || "", text: (h.story_text || h.comment_text || h.title || "").replace(/<[^>]+>/g, "").slice(0, 600), time: h.created_at, url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, points: h.points }));
+    },
+  },
+  mastodon: {
+    name: "Mastodon ハッシュタグ（公開タイムライン）", lang: "multi", kind: "social",
+    desc: "mastodon.social の公開タグタイムライン（ログイン不要）。キーワードの先頭語をタグとして使う。",
+    async run(q, opt) {
+      const tag = q.replace(/^#/, "").split(/[\s,]+/)[0].replace(/[^\p{L}\p{N}_]/gu, ""); if (!tag) return [];
+      const r = await (await fetch(`https://mastodon.social/api/v1/timelines/tag/${encodeURIComponent(tag)}?limit=${Math.min(40, opt.limit || 10)}`)).json();
+      return (Array.isArray(r) ? r : []).map(p => item("mastodon", { title: `@${p.account?.acct}`, text: (p.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600), time: p.created_at, url: p.url, likes: p.favourites_count, reposts: p.reblogs_count, lang: p.language }));
+    },
+  },
+  stackexchange: {
+    name: "Stack Exchange（技術 Q&A）", lang: "en", kind: "forum",
+    desc: "api.stackexchange.com（Stack Overflow）。技術的な話題の一次的な質問・回答。",
+    async run(q, opt) {
+      const r = await (await fetch(`https://api.stackexchange.com/2.3/search/advanced?q=${encodeURIComponent(q)}&site=stackoverflow&pagesize=${opt.limit || 10}&order=desc&sort=relevance`)).json();
+      return (r.items || []).map(x => item("stackexchange", { title: x.title, text: x.title, time: new Date(x.creation_date * 1000).toISOString(), url: x.link, likes: x.score, answered: x.is_answered }));
+    },
+  },
+  github: {
+    name: "GitHub（リポジトリ）", lang: "multi", kind: "code",
+    desc: "api.github.com の公開検索（未認証 10 回/分）。実装・ツールの一次情報。",
+    async run(q, opt) {
+      const r = await (await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=updated&per_page=${opt.limit || 10}`)).json();
+      return (r.items || []).map(x => item("github", { title: x.full_name, text: `${x.description || ""} ★${x.stargazers_count} ${x.language || ""}`, time: x.pushed_at, url: x.html_url, likes: x.stargazers_count }));
+    },
+  },
+  crossref: {
+    name: "Crossref（論文・DOI）", lang: "multi", kind: "paper",
+    desc: "api.crossref.org。査読論文・プレプリントの書誌（一次情報）。",
+    async run(q, opt) {
+      const r = await (await fetch(`https://api.crossref.org/works?query=${encodeURIComponent(q)}&rows=${opt.limit || 10}&sort=relevance&select=DOI,title,author,issued,container-title,URL,abstract`)).json();
+      return (r.message?.items || []).map(x => item("crossref", { title: (x.title || [""])[0], text: `${(x.author || []).slice(0, 3).map(a => a.family).join(", ")} — ${(x["container-title"] || [""])[0]} ${(x.abstract || "").replace(/<[^>]+>/g, "").slice(0, 300)}`, time: x.issued?.["date-parts"]?.[0]?.join("-"), url: x.URL, official: false }));
+    },
+  },
+  arxiv: {
+    name: "arXiv（プレプリント）", lang: "en", kind: "paper",
+    desc: "export.arxiv.org API（Atom）。AI 系の最新論文。",
+    async run(q, opt) {
+      const t = await (await fetch(`https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(q)}&max_results=${opt.limit || 10}&sortBy=submittedDate&sortOrder=descending`)).text();
+      const doc = new DOMParser().parseFromString(t, "text/xml"); return [...doc.querySelectorAll("entry")].map(e => item("arxiv", { title: e.querySelector("title")?.textContent.replace(/\s+/g, " ").trim(), text: (e.querySelector("summary")?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500), time: e.querySelector("published")?.textContent, url: e.querySelector("id")?.textContent }));
+    },
+  },
+  semanticscholar: {
+    name: "Semantic Scholar（論文）", lang: "en", kind: "paper",
+    desc: "api.semanticscholar.org（鍵なしは低頻度）。被引用数つき。",
+    async run(q, opt) {
+      const r = await (await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${opt.limit || 10}&fields=title,year,citationCount,abstract,url,authors`)).json();
+      return (r.data || []).map(x => item("semanticscholar", { title: x.title, text: `${(x.authors || []).slice(0, 3).map(a => a.name).join(", ")} (${x.year}) 被引用 ${x.citationCount} — ${(x.abstract || "").slice(0, 300)}`, time: x.year ? `${x.year}-01-01` : "", url: x.url, likes: x.citationCount }));
     },
   },
 };
@@ -126,15 +177,17 @@ export async function collect(query, sources, opt = {}, onProgress = () => {}) {
     onProgress(`${s.name} を取得中…`);
     try { const items = await s.run(query, opt); all.push(...items); }
     catch (e) { all.push(item(k, { error: String(e) })); }
-    if (k === "gdelt") await sleep(5000); else await sleep(1000);
+    if (k === "gdelt") await sleep(5000); else if (k === "github") await sleep(3000); else await sleep(1000);
   }
   onProgress("");
   return all;
 }
 
 export function evidencePack(query, items, judged) {
-  return { query, collected_at: new Date().toISOString(), policy: "公開 API のみ・ログイン不要・個人の特定目的では使用しない", user_agent_note: UA_NOTE, items: items.map((it, i) => ({ ...it, judgement: judged?.[i] || null })) };
+  return { query, collected_at: new Date().toISOString(), policy: "公開 API のみ・ログイン不要・個人の特定目的では使用しない", user_agent_note: UA_NOTE, items: items.map((it, i) => ({ ...it, content_hash: it.text ? fnv1a(`${it.title || ""}\n${it.text}`) : null, judgement: judged?.[i] || null })) };
 }
+/* 本文の指紋（FNV-1a 32bit）。証跡 JSON の改変検知用の軽いハッシュ。厳密な証拠保全には SHA-256（ツール箱）を使う */
+export function fnv1a(str) { let h = 0x811c9dc5; for (const b of new TextEncoder().encode(str)) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); }
 
 /* Markdown レポート（卒論・共有用） */
 export function markdownReport(query, items, judged, trust, clusters, geo) {

@@ -1,4 +1,4 @@
-# JEV Lab — 小さな判断モデル（Jev 級）による公開情報の収集・整理・検証
+# JEV Lab — 小さな判断モデル（Jev 級）による公開情報の収集・整理・検証（v0.7）
 
 **主軸**：調べたいことを入れると、公開 API から情報を集め、30〜70M パラメータの日本語判断モデル **JEV-JA** が「関連・種類・緊急度・具体性・拡散依頼・根拠との整合」を確率つきで仕分け、説明できる信頼性スコアと証跡を残す。すべてスマホのブラウザ内（オフライン可）で動く。
 **研究**：Jev 級モデル（typed-decision model）の仕組み・学習・較正・他方式との比較を、同じ環境で実験・記録する。災害時の情報整理はその応用の一つ。
@@ -76,6 +76,7 @@
 1. `config/models.yaml` にエントリを追加（`backbone:` を HF id に。既存 Jev モデルなら `adapter:` を変える）
 2. B-1〜3（JEV-JA 系なら学習 → 変換 → 評価。PC 専用モデルなら評価のみ）
 3. `docs/models/index.json` は変換時に自動更新される → push
+4. 既存 Jev をブラウザに載せる変換：cross-encoder 形は `python -m jev_lab.export.export_crossenc --hf <id> --name <name>`、Laya 形は `python -m jev_lab.export.export_laya --hf convaiinnovations/laya-multilingual --name laya_multi_322m`（空き容量 2 GB・空きメモリ 6 GB 以上。fp32 → 埋め込み int8 化 → 量子化 → 90 MB 分割）
 
 ### D. データを足した
 1. `config/datasets.yaml` に family を追加、または `import_csv.py`
@@ -96,22 +97,89 @@ pip install -e ".[onnx,notebook]"      # 大型モデル比較は追加で: pip 
 ```
 GitHub → Settings → Pages → Source を **GitHub Actions** にしておく。
 
-## 4'. Play の画面構成（v0.4）
+## 4'. Play の画面構成（v0.6）
+
+上部のモデルバー（読み込む → 説明行に言語・サイズ・端末適性）と、初回だけ出る「①読み込む ②キーワード ③JEV が仕分ける」の 3 ステップ案内。
 
 | 群 | タブ | 何ができるか |
 |---|---|---|
-| 使う | **情報収集** | キーワード（カンマで複数、Enter で実行）→ 収集 → 自動で JEV 整理 → 信頼性 → 絞り込み・ハイライト・新着/公的のみ → 各行「＋根拠」→ 証跡 / CSV / Markdown → 人手ラベル |
-| 使う | **調査ツール** | dork ビルダー・ドメインの素性（DNS/RDAP/Wayback/CT）・EXIF/GPS・逆画像検索。結果は根拠として情報収集へ |
-| 使う | **JEV チャット** | 文章を送ると現在の質問セットで判定して返す。`/q` で質問追加、`/ctx` で根拠、`/osint` で収集→整理、`/preset` |
-| 使う | 判断 Playground | 質問ビルダー（保存セット）、T／span-marker／head-cos 切替、実験ノート保存 |
-| 使う | 用途テンプレ | 6 用途の見本と複数テキスト一括判断 |
-| 研究 | 検証 | 根拠あり/なし、順序、否定形、選択肢除去、**モデル×手法マトリクス（HF モデル含む）**、時間 |
-| 研究 | バッチ評価 | 公開データ／自分の JSONL、family 絞り込み、進捗・中止、較正図、CSV、自動でノート記録 |
-| 研究 | **改良（端末内学習）** | 判断ヘッドをこの端末で再学習（gold 付き JSONL か情報収集の人手ラベル）。学習前後を未使用データで比較 → 保存 → 以後そのヘッドで判断。JSON で書き出し／読み込み |
-| 研究 | 実験ノート | 全実験の記録・メモ・CSV・2 実験の差分 |
-| 学ぶ・設定 | 仕組み・可視化 | 入力列・cos・logit→softmax・PCA・時間 |
-| 学ぶ・設定 | **モデルを追加** | HF の Transformers.js 対応モデル（NLI ゼロショット／文埋め込み）を JSON 1 行で追加 |
-| 学ぶ・設定 | 保存・設定 | 保存モデル、永続化、最新版へ更新、ダーク／文字サイズ、端末情報 |
+| 使う | **情報収集** | 大きな入力欄にキーワード（カンマで複数、Enter）→ 情報源チップ → 収集 → 自動で JEV 整理 → **「JEV の要約」**（種類の内訳・信頼性上位・緊急・根拠と矛盾の疑い・要確認）→ カード表示（信頼性の大きな数字、種類・緊急・具体・拡散依頼・整合のフラグ）→ 並び替え（信頼性／新しい順／出典／緊急度）・絞り込み（新着／公的・報道／要確認）→ ＋根拠 → 証跡 / CSV / MD / ノート / 人手ラベル。**🔔 保存した検索の新着を確認**（履歴をまとめて再収集し新着だけ表示＝定点観測） |
+| 使う | **文章を判断** | 1 件を詳しく。テンプレ（既定は空）、質問ビルダー（質問文＋選択肢、id は自動）、「よく使う」質問の 1 クリック追加、**答えカード**（大きな判定・確信度の色分け・分布は折りたたみ）、不確かな問いへの改善ヒント。温度・読み出し・手法は詳細設定に |
+| 使う | **一括判断** | 複数テキスト（貼り付け／.txt／.csv）× 同じ質問 → 集計（Choice の内訳・Noul のはい件数）＋表＋CSV。問い合わせ振り分け・アンケート集計向け |
+| 使う | **JEV チャット** | 文章を送ると質問セットで判定。**`? 返信が必要か`** で直前の文章に はい/いいえ、**`? 担当は \| 請求 \| 配送`** で選択式（読み物アシスタントとしての使い方）。`/osint` で収集→要約→要確認 |
+| 使う | 調査ツール | dork ビルダー・ドメインの素性・EXIF/GPS・逆画像検索。結果は根拠へ |
+| 研究 | 検証 | 6 種の検証それぞれに「何を測るか・良い結果の目安」と**自動の解釈文**（根拠を参照しているか、位置バイアス、否定形の反転、マトリクスの一致問い数） |
+| 研究 | バッチ評価 | 精度に **95% 信頼区間（ブートストラップ）**、**多数決／ランダムのベースライン**、残り時間、較正図 PNG、自動解釈（ベースライン超えか、ECE の良否） |
+| 研究 | 改良（端末内学習） | ヘッド再学習、学習前後を val で比較、保存 |
+| 研究 | 実験ノート | **「卒論用の表（Markdown）」**（モデル×設定×データ×精度(CI)×多数決×Brier×ECE×ms×端末）をクリップボードへ。CSV / JSON / 差分 |
+| 学ぶ・設定 | 仕組み・可視化 | 入力列・cos・logit→softmax・PCA（PNG）・時間 |
+| 学ぶ・設定 | モデル | 使えるモデル表、HF 検索（最終更新順）、JSON 追加（open-jev-onnx / crossenc / laya） |
+| 学ぶ・設定 | 保存・設定 | 保存モデル、永続化、更新、ダーク／文字サイズ／案内表示、端末情報 |
+
+### v0.6 で直した「システムとしておかしい／分かりにくい」点（16 件）
+
+| # | 問題 | 対応 |
+|---|---|---|
+| 1 | 初めて開いても何をすればよいか分からない | 3 ステップ案内、モデル説明行、ボタン無効時の理由表示（「先にモデルを読み込む」） |
+| 2 | 情報収集の入力欄が設定だらけで、肝心のキーワード欄が小さい | 大きな検索欄＋チップ＋例、設定は「詳細設定」に折りたたみ |
+| 3 | 収集結果が 13 列の表で読めない | カード表示（信頼性の大きな数字・フラグ・内訳・全文）、並び替え・絞り込み |
+| 4 | JEV の判定が各行に散らばり「結局どうなのか」が無い | **JEV の要約**（内訳・上位・緊急・矛盾・要確認）と「要確認のみ」フィルタ |
+| 5 | 判定結果がバー表の羅列で、質問 id しか出ない | 答えカード（質問文・大きな判定・確信度の色・分布は折りたたみ・改善ヒント） |
+| 6 | 質問ビルダーで id を手で付けさせられる | 質問文から自動生成、「よく使う」質問を 1 クリック追加、型の意味を併記 |
+| 7 | テンプレタブと Playground が二重 | 「文章を判断」（1 件）と「一括判断」（複数）に整理。テンプレは両方のプルダウンから |
+| 8 | チャットで JEV の使いどころが分からない | `?` で直前の文章に問い直す（はい/いいえ・選択式）、返答を「質問文 → 判定」の文に |
+| 9 | 検証タブの結果が数表だけで意味が分からない | 各項目に測定の意味・目安、自動の解釈文 |
+| 10 | バッチ評価の精度が「高いのか低いのか」判断できない（研究として不十分） | 95% CI、多数決／ランダムのベースライン、自動解釈。ノート・CSV・卒論表にも記録 |
+| 11 | 卒論の表を作るのに手作業が要る | 「卒論用の表（Markdown）」ボタン |
+| 12 | 地名＋出来事語（「津市 大雨」）で Nominatim が中国の地名を返す | 出来事語を除いた地名で検索、日本語なら国内限定 |
+| 13 | 弱いモデルだと全件が「根拠と矛盾」になる | 矛盾判定を p(整合) < 0.35 に限定（確信をもって否定したときだけ） |
+| 14 | 定点観測（同じテーマを毎日見る）ができない | 🔔 保存した検索の新着確認 |
+| 15 | ONNX Runtime の Worker 実行で JEV-JA の 2 回目のヘッド推論が落ちる（転送済みバッファ再利用） | 入力を複製して渡す（バグ修正） |
+| 16 | 既存 Jev の比較対象が argos と open-jev だけ | **Laya multilingual（HF で最も使われている小型 Jev 系、Apache-2.0）をブラウザ・PC 両方に追加**（下 3-A） |
+
+
+## 4-4. v0.7：調査（対象指定）・OSINT Framework・ツール箱・「JEV だから効率が上がる」設計
+
+### 画面（使う）
+| タブ | 何をするか |
+|---|---|
+| 情報収集（話題） | キーワード → 公開 API（気象庁・Wikipedia/Wikidata・Nominatim・Bluesky・**Mastodon**・GDELT・HN・**Stack Exchange・GitHub・Crossref・arXiv・Semantic Scholar**）→ 届いた分から JEV が即判定 → 要約・仕分け（自動採用／人手確認／除外のしきい値）→ 証跡 |
+| **調査（対象を指定）** | ドメイン・URL・IP・メール・@ユーザー名・電話番号・座標・地名・会社名・BTC/ETH アドレス・ハッシュ・CVE・便名・船舶を**自動判定**（複数可）。種類ごとに鍵不要の公開 API を自動で叩き（DNS/RDAP/SPF・DMARC/証明書ログ/ホスト名/Wayback 履歴＋URL 一覧/AlienVault OTX/ipinfo/逆引き/Gravatar/GitHub/mempool.space/Blockscout/NVD/逆ジオ/標高/OSM ノート）、残りは各サービスの検索ページをリンクで開く。JEV が根拠行を読んで「正規か／なりすましの疑い／注意点／追加確認」を判定。関係図（Maltego 風）。OSINT Framework 一覧（自動／端末内／リンク／実装しない理由） |
+| ツール箱 | **dork ビルダー**（演算子 19 種の一覧、用途別ライブラリ 20 式、OR・数値範囲・intext、各エンジンで開く）、画像 **EXIF/GPS + ELA（改ざん痕）**＋逆画像検索、**文書メタデータ**（PDF /Info・XMP、docx/xlsx/pptx core.xml）、**変換**（Base64/Hex/URL/HTML/ROT13/UNIX 時刻/JWT/Punycode）＋文字列の種類判定＋SHA、**ファイルのハッシュ → VirusTotal / MalwareBazaar 検索**（送信しない）、**太陽の方位・高度**（影と撮影時刻の整合）、電話番号の書式判定、**OpSec**（ブラウザの露出情報、パスワード漏えい k-匿名性確認）、学ぶ・証拠保全リンク |
+
+### OSINT Framework の各カテゴリの扱い（合法・受動的なものだけ）
+| カテゴリ | 扱い |
+|---|---|
+| ユーザー名 | GitHub 公開 API のみ自動、他はリンク。自分のアカウント名の露出確認か同意のある調査に限る（Sherlock 型の横断自動照会はしない） |
+| メール | SPF/DMARC/MX・使い捨て判定・Gravatar を自動。HIBP は自分のアドレスでサイト上で |
+| ドメイン / IP | 全自動（上記）＋ Shodan/Censys/VirusTotal/Safe Browsing はリンク |
+| 画像・動画・文書 | EXIF・ELA・メタデータは端末内。逆画像検索・InVID はリンク |
+| SNS / IM | Bluesky・Mastodon は自動、X/Reddit/YouTube/TikTok/Telegram 公開チャンネル/Discord はリンク |
+| 電話番号 | 書式・種別・市外局番を端末内で。持ち主の特定はしない |
+| 公的記録 / 企業記録 | 法人番号・gBizINFO・官報・e-Gov・判例・NDL・e-Stat・EDINET・OpenCorporates・Crunchbase・J-PlatPat へリンク、Wikidata は自動 |
+| 交通 | FlightRadar24/Flightaware/MarineTraffic/VesselFinder へリンク（OpenSky API は CORS 不可） |
+| 位置情報 | 逆ジオ・標高・OSM ノート・太陽位置を自動、Google/OSM/地理院/ハザードマップ/Sentinel へリンク |
+| 検索エンジン / フォーラム / アーカイブ / 翻訳 / メタデータ / エンコード | 上記ツール箱と収集ソース。翻訳は MyMemory 公開 API で収集結果をその場で日本語化 |
+| 暗号資産 | BTC（mempool.space）・ETH（Blockscout）を自動、Chainabuse へリンク |
+| 悪意のあるファイル / エクスプロイト / 脅威インテリジェンス | ハッシュ検索（送信なし）、NVD 自動、Exploit-DB/ATT&CK/JVN/CISA KEV/URLhaus/ThreatFox はリンク。OTX は自動 |
+| OpSec / 証拠保全 / トレーニング | 端末内チェック、証跡 JSON（本文ハッシュ付き）、Wayback 保存・Webrecorder・TraceLabs・Bellingcat へリンク |
+| **人物検索・出会い系・ダークウェブ・テロリズム・クラシファイド広告** | **実装しない**（個人の特定・プロファイリング、違法コンテンツ接触、規約違反・閉鎖サービス。一覧に理由を明記） |
+
+動画で扱われる手法の対応：Google dorks（ビルダー＋ライブラリ）、Shodan/Censys（リンク。鍵が要る）、theHarvester/Sherlock/Maltego（ホスト名・証明書ログの自動収集／ユーザー名はリンク集／関係図）、WHOIS・Wayback・EXIF・逆画像検索（自動／端末内）。
+
+### 「JEV を使うと従来の AI（LLM）より何が効率的か」を設計に落とした点
+| 観点 | LLM に文章で聞く場合 | JEV（本アプリ） | 実装 |
+|---|---|---|---|
+| 速度・逐次処理 | 全件そろえてプロンプト → 数秒〜数十秒 | 1 件 6 問 ≈ 100 ms（30m）。**届いた分から即判定** | 情報源ごとに取得→判定→描画 |
+| 出力の型 | 自由文。件数集計・しきい値運用ができない | 型付き分布（Choice/Score/Noul）＋較正済み確率 | 仕分けしきい値（自動採用／人手確認／除外）、「読む件数 N → M」を表示 |
+| 幻覚 | 事実を作る | **生成しない**。与えた根拠と本文の整合を確率で返すだけ | 「根拠と整合」「具体性」「拡散依頼」の判定、調査の根拠行判定 |
+| プライバシー・OpSec | 収集内容を外部 API に送る | **端末内**で判定。オフライン可 | 判定件数と時間をパネルに表示、「外部 AI に送らない」を明記 |
+| 再現性 | 温度・プロンプトで揺れる | 同じ入力→同じ分布。順序・否定形の検証タブで安定性を測れる | 検証タブ、実験ノート、95% CI |
+| コスト | トークン課金 | 無料・端末の CPU | — |
+| 改良 | プロンプト調整 | 人手ラベル数百件で端末内再学習（数十秒） | 改良タブ、人手ラベル → JSONL |
+
+### 追加した情報源（情報収集）
+Mastodon（タグの公開タイムライン）、Stack Exchange、GitHub リポジトリ、Crossref、arXiv、Semantic Scholar。プリセット「論文サーベイ」を追加（卒論の関連研究収集用）。証跡 JSON に本文の指紋（FNV-1a）を付けた。
 
 ## 4''. 判断ヘッド v2 と「改良の仕組み」
 
@@ -140,7 +208,7 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 **Jev 級（typed-decision model）の定義**：状況（state）＋型付き質問（Choice / Score / Noul）を 1 回の forward で読み、各質問について選択肢上の**較正済み確率分布**を返す。生成しない。TypeSafe AI の製品 Jev がこの形の原点で、open-jev（Kotoba Labs）、Laya（Convai）、Tiny-Jev、Jev-Style、modernbert-ja-310m-jev などのコミュニティ実装が同じ形を再現している。
 **jev_ja_30m はこの定義を満たす**（同じ入力列設計 [STATE]/[Q]/[OPT]、1 forward、native 分布、温度較正）。TypeSafe の Jev 本体とは無関係の自作実装で、モデルカード上の他の "open-jev" 系と同じ位置づけ。NLI ゼロショットや文埋め込み（v0.4 で試験的に載せたもの）は Jev 級ではないので v0.5 で外した。
 
-**このラボで比較する既存 Jev 級モデル**（HF Hub を "jev / open-jev / typed-decision" で検索し、小型・高性能・ライセンス明記のものを選定）
+**このラボで比較する既存 Jev 級モデル**（2026-09-27 に HF Hub を "jev / open-jev / typed-decision / laya / tiny-jev / jev-style" で最終更新順に再検索し、小型・高性能・ライセンス明記・入力形式が公開されているものを選定。ONNX 同梱でも入力形式が独自なもの（例 JevK5-Lite）や、GGUF＋独自ヘッドで PC 専用のもの（fukayatti0/jev-japanese-judgment-v2）は表に残すが端末には載せない）
 
 | モデル | 形 | 大きさ | 言語 | ライセンス | どこで動く | 備考 |
 |---|---|---|---|---|---|---|
@@ -149,18 +217,19 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 | **onnx-community/open-jev-deberta-v3-large-ONNX** | open-jev 形（seg / pair_q / pair_opt） | 435M / q4 480MB | en | Apache-2.0 | 端末内（PC ブラウザ、HF から取得） | Kotoba の参照実装 |
 | lostargon/Tiny-Jev | Qwen3-0.6B ベース、System-One API | 0.6B | en | Apache-2.0 | PC | `tiny_jev` アダプタ |
 | chaoliangUNSW/Jev-Style-0.8B-Decision-v3 | Qwen3.5-0.8B ベース | 0.8B / 4bit 0.53GB | 多言語（ja 含む） | Apache-2.0 | PC（`pip install "jev-style[torch]"`） | Banking77 68%、JevBench 64% |
-| convaiinnovations/laya-typed-decisions / laya-multilingual | ModernBERT-large / mmBERT | 421M / 322M | en / 100+ | Apache-2.0 | PC（独自 API、未実装） | fast-decisions 系で Jev 公表値超え |
+
 | fukayatti0/jev-japanese-judgment-v2 | LFM2.5-1.2B-JP ＋ ヘッド | 1.2B | ja | LFM（要確認） | PC（独自コード） | JNLI 85.8%、JSTS 58% |
 
 **最初の比較（docs/bench/jevbench_ja_small.jsonl、270 state、in-domain + OOD 混在）**
 
-| モデル | 精度 | Brier | ECE | p50 ms（PC CPU） | 大きさ |
-|---|---|---|---|---|---|
-| argos_ja_310m（既存） | **54.6%** | 0.607 | 0.167 | 985 | 316MB |
-| jev_ja_30m（自作 v2） | 40.8% | 0.680 | 0.130 | **27** | 47MB |
-| jev_ja_30m_cos（ゼロショット） | 31.5% | 0.653 | **0.047** | 25 | 47MB |
+| モデル | 学習 | 精度 | Brier | ECE | p50 ms（PC CPU） | 大きさ |
+|---|---|---|---|---|---|---|
+| argos_ja_310m（既存、日本語） | JGLUE 等で fine-tune 済 | **54.6%** | 0.607 | 0.167 | 985 | 316MB |
+| **laya_multi_322m（既存、Laya 多言語、v0.6）** | 日本語データでは未学習（ゼロショット） | 50.8% | 0.743 | 0.292 | 274 | 323MB |
+| jev_ja_30m（自作 v2） | JevBench-JA で学習 | 40.8% | 0.680 | 0.130 | **27** | 47MB |
+| jev_ja_30m_cos（ゼロショット） | なし | 31.5% | 0.653 | **0.047** | 25 | 47MB |
 
-→ 既存の 310M は精度で 14 pt 上、自作 30m は 36 倍速く 7 分の 1 の大きさ。JevBench 流の「5 軸で見せる」比較がそのまま成立する。
+→ 既存の 310M は精度で 14 pt 上、自作 30m は 36 倍速く 7 分の 1 の大きさ。**Laya は日本語を一切学習していないのに 50.8%**（jnli 87%、fever_en 77%、jcqa 60〜73%）で、汎用の Jev 級モデルとして最も実用的。ただし ECE 0.29 と**過信**（モデルカードの記載どおり。温度 T を上げるか再較正が必要）。argos は日本語 fine-tune の効果で jnli 100%・jcola 87% だが OOD（jcola_ood 40%、fever_en_ood 33%）で落ちる。JevBench 流の「5 軸で見せる」比較がそのまま成立し、「小さく速い自作」対「大きく強い既存」対「学習なしで汎用の Laya」という三者比較が卒論の軸になる。
 
 ## 3-B. 調査ツール（動画の手法のうち合法・受動的なもの）
 
@@ -182,6 +251,8 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 - スマホ実機：1 判断（166 トークン・3 質問）**167 ms**（WASM）。オフライン再読込 → 自動ロード → 判断まで確認
 - 公開 API：気象庁 bosai JSON・Nominatim・GSI 標高タイル・Wikipedia/Wikidata・HN は GitHub Pages から CORS で取得可。Bluesky 公開検索は実ブラウザから可。GDELT は 5 s/req
 - Play 全タブ（情報収集→整理→信頼性、質問ビルダー、T/pool/head-cos 切替、検証 6 種、可視化、バッチ、ノート）を headless Chromium で動作確認
+- v0.7：調査タブ（URL・座標・会社・ETH ほか）、ツール箱（変換・太陽位置・電話・露出情報・dork ライブラリ）、情報収集の逐次判定と仕分けしきい値を headless Chromium で確認（公開 API はサンドボックスから届く範囲）
+- v0.6：Laya multilingual のブラウザ推論が Python（`laya` 公式 Agent）とトークン列で完全一致、確率は int8 化で最大 ±0.13（argmax は一致）。ブラウザで 6 問 4.7 秒（2 コア WASM）。一括判断・チャット `?`・要約・CI 付きバッチ・卒論表を headless Chromium で確認
 
 ## 6. 研究ロードマップ（P1 → P2）
 
@@ -190,7 +261,7 @@ GitHub → Settings → Pages → Source を **GitHub Actions** にしておく�
 | P1-a（済） | 基盤：スキーマ・アダプタ・データ 10 family・学習・ONNX・Pages・OSINT フロー・チャット・端末内学習・HF モデル追加 | このリポ |
 | P1-b | JEV-JA 30m/70m を GPU で本学習（2〜3 ep、augment 0.7）。in-domain / OOD / 較正 / 端末 ms | 結果表、公開モデル |
 | P1-c | 比較：cos ゼロショット、NLI、GLiNER2.5-multi、open-jev（英語 family）、Qwen3 verbalized。fast_decisions で GLiNER2 と同条件 | リーダーボード |
-| P1-d | 既存 Jev 級モデルの改良：mDeBERTa-base に JEV ヘッド、GLiNER2.5-multi の追加学習 | 5 軸比較 |
+| P1-d | 既存 Jev 級モデルの改良：mDeBERTa-base に JEV ヘッド、GLiNER2.5-multi の追加学習、**Laya multilingual の日本語 fine-tune（`laya` の RLCD ノートブック、Kaggle 2×T4 で 4〜5 h）と再較正（ECE 0.29 → 0.1 台）** | 5 軸比較 |
 | P1-e | 情報収集の評価：Play で 5〜10 テーマを収集 → 人手ラベル 300〜500 件（osint_ja）→ 学習前後の信頼性判定精度、モデル間 κ、新着検出 | 独自データセット |
 | P1-f | アブレーション：span/marker、λ、拡張、int8、温度 | 卒論の実験章 |
 | P2 | 応用：事前同期したハザード・避難所データと組み合わせた災害時オフライン運用（同じ JEV・同じ地理照合） | 応用章 |

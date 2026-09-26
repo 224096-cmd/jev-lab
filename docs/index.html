@@ -15,11 +15,12 @@
 <p>生成しない。1 回の forward で「関連・種類・緊急度・具体性・拡散依頼・根拠との整合」を確率つきで返す 30〜70M パラメータのモデルを日本語で構築し、スマホのブラウザ内（オフライン可）で動かす。収集は公開 API のみ、判断は説明できる形で、証跡を残す。</p>
 <p><a href="play.html"><button class="primary">情報収集・判断を開く</button></a> <a href="theory.html"><button>仕組みを読む</button></a></p></div>
 <div><table><tr><th>できること</th><th>どこで</th></tr>
-<tr><td>調べたいことを入れて公開情報を収集 → JEV で整理・照合 → 信頼性スコア → 証跡保存</td><td>Play「情報収集」</td></tr>
-<tr><td>Choice / Score / Noul の質問を自由に作って判断、温度・読み出し・手法を切替</td><td>Play「判断 Playground」</td></tr>
+<tr><td>ドメイン・IP・メール・座標・暗号資産アドレス・CVE などを入れると種類を自動判定し、公開 API を横断して集め、JEV が「正規か／なりすましの疑い」を判定。OSINT Framework の合法な範囲をリンク集として内蔵</td><td>Play「調査」</td></tr>
+<tr><td>調べたいことを入れて公開情報を収集 → JEV が種類・緊急度・具体性・拡散依頼・根拠との整合を判定 → 要約と要確認リスト → 信頼性順 → 証跡保存。保存した検索の新着確認</td><td>Play「情報収集」</td></tr>
+<tr><td>1 件の文章に Choice / Score / Noul の質問を当てて答えカードで見る。複数テキストの一括判断と集計。チャットで「? 返信が必要か」と問い直す</td><td>Play「文章を判断」「一括判断」「JEV チャット」</td></tr>
 <tr><td>根拠あり/なし・順序・否定形・選択肢除去・モデル×手法マトリクス・時間計測</td><td>Play「検証」</td></tr>
 <tr><td>入力列・ベクトル・logit・PCA を可視化、数式つき解説</td><td>Play「仕組み・可視化」／仕組みページ</td></tr>
-<tr><td>10 family の JevBench-JA や自分の JSONL を端末内で評価、実験ノートに記録、CSV 出力</td><td>Play「バッチ評価」「実験ノート」</td></tr>
+<tr><td>10 family の JevBench-JA や自分の JSONL を端末内で評価（95% CI・ベースライン付き）、実験ノートに記録、卒論用の表を出力</td><td>Play「バッチ評価」「実験ノート」</td></tr>
 <tr><td>学習・ONNX 化・大型モデル比較（GLiNER2 / open-jev / NLI / LLM）</td><td>PC（VS Code）</td></tr></table></div>
 </div>
 
@@ -49,8 +50,9 @@
 <table><tr><th>モデル</th><th>形</th><th>大きさ</th><th>言語</th><th>どこで動く</th></tr>
 <tr><td>jev_ja_30m（自作）</td><td>[STATE][Q][OPT] 1 系列 + MLP ヘッド v2</td><td>37M / 47MB</td><td>ja</td><td>スマホ・PC ブラウザ、端末内学習可</td></tr>
 <tr><td>argos1111/modernbert-ja-310m-jev</td><td>cross-encoder（質問+状況 × 候補）</td><td>310M / 316MB</td><td>ja</td><td>PC ブラウザ・PC</td></tr>
+<tr><td>convaiinnovations/laya-multilingual（Laya、HF ❤3.8k）</td><td>[MASK] 位置の 1 logit を選択肢ごとに読む</td><td>322M / 323MB</td><td>100+（ja 含む）</td><td>PC ブラウザ・PC（pip install laya）</td></tr>
 <tr><td>open-jev-deberta-v3-large（Kotoba）</td><td>open-jev 形</td><td>435M / 480MB</td><td>en</td><td>PC ブラウザ（HF から）・PC</td></tr>
-<tr><td>Tiny-Jev / Jev-Style-0.8B / Laya</td><td>LLM ベースまたは独自</td><td>0.4〜0.8B</td><td>en / 多言語</td><td>PC</td></tr></table>
+<tr><td>Tiny-Jev / Jev-Style-0.8B / Laya(en)</td><td>LLM ベースまたは独自</td><td>0.4〜0.8B</td><td>en / 多言語</td><td>PC</td></tr></table>
 <p class="muted small">Jev 級 = state + 型付き質問 → 1 forward で較正済み分布、生成しない。NLI ゼロショットや埋め込みモデルは比較対象にしない。</p>
 </div>
 </main>

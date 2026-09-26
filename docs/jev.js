@@ -169,7 +169,7 @@ export class JevJa {
     const tEnc = performance.now();
     const mean = ([s, e]) => { const v = new Float32Array(d); for (let t = s; t < e; t++) for (let i = 0; i < d; i++) v[i] += H[t * d + i]; for (let i = 0; i < d; i++) v[i] /= (e - s); return v; };
     const row = t => H.slice(t * d, (t + 1) * d);
-    const runHead = async (u, V, K) => this.headCustom ? this.headCustom.logits(u, Array.from({ length: K }, (_, k) => V.subarray(k * d, (k + 1) * d))) : Array.from((await this.head.run({ u: new ort.Tensor("float32", u, [d]), v: new ort.Tensor("float32", V, [K, d]) })).logits.data);
+    const runHead = async (u, V, K) => this.headCustom ? this.headCustom.logits(u, Array.from({ length: K }, (_, k) => V.subarray(k * d, (k + 1) * d))) : Array.from((await this.head.run({ u: new ort.Tensor("float32", u.slice(), [d]), v: new ort.Tensor("float32", V, [K, d]) })).logits.data)   /* proxy(Worker) では入力バッファが転送されるので複製を渡す */;
     const qres = [];
     for (let j = 0; j < questions.length; j++) {
       const q = questions[j], opts_ = JevJa.optionsOf(q), K = opts_.length;
@@ -272,13 +272,54 @@ export class OpenJevOnnx {
     return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: tokens.length, answers };
   }
 }
+
+/* "laya": Laya（convaiinnovations/laya-multilingual 等）。docs/models/<name>/ に export_laya.py で置いた int8 ONNX。
+   系列 [CLS] "{type} question: {ins}" [SEP] [MASK] opt0 [MASK] opt1 … [SEP] state [SEP] → [MASK] 位置ごとに 1 logit（laya.common.build_sequence と同じ） */
+export class LayaJev {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "laya"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
+  async load(onProgress = () => {}) {
+    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const txt = b => new TextDecoder().decode(b);
+    this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
+    onProgress("tokenizer を準備中"); const tj = JSON.parse(txt(await getf("tokenizer.json")));
+    // Python(tokenizers) の Metaspace prepend_scheme:"always" を Transformers.js で再現するには add_prefix_space が要る（無いと先頭の ▁ が付かず id がずれる）
+    const fixMeta = pt => { if (!pt) return; if (pt.type === "Metaspace" && pt.add_prefix_space == null) pt.add_prefix_space = (pt.prepend_scheme ?? "always") !== "never"; (pt.pretokenizers || []).forEach(fixMeta); }; fixMeta(tj.pre_tokenizer);
+    this.tok = new PreTrainedTokenizer(tj, JSON.parse(txt(await getf("tokenizer_config.json"))));
+    const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
+    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
+    this.backend = "wasm"; onProgress(""); return this;
+  }
+  ids(t, max) { const o = { add_special_tokens: false }; if (max) { o.truncation = true; o.max_length = max; } return Array.from(this.tok(t, o).input_ids.data, Number).slice(0, max || 1e9); }
+  /* Python の render_options と同じ文字列 */
+  static renderOptions(q) { if (q.type === "choice") return q.options; if (q.type === "score") return q.levels.map((c, i) => `level ${i}: ${c}`); return ["false: no, the statement does not hold", "true: yes, the statement holds"]; }
+  buildSequence(stateIds, q) {
+    const { cls_id: CLS, sep_id: SEP, mask_id: MASK, max_len: ML = 1024, head_max_len: HL = 256 } = this.cfg; const mt = this.tok.mask_token || "[MASK]";
+    const head = this.ids(`${q.type} question: ${String(q.instructions).replaceAll(mt, " ")}`); let opt = LayaJev.renderOptions(q).map(o => [MASK, ...this.ids(" " + o.replaceAll(mt, " "), 48)]);
+    let budget = HL - opt.reduce((s, o) => s + o.length, 0); if (budget < 16) { const per = Math.max(4, Math.floor((HL - 16) / Math.max(1, opt.length))); opt = opt.map(o => o.slice(0, per)); budget = HL - opt.reduce((s, o) => s + o.length, 0); }
+    const ids = [CLS, ...head.slice(0, Math.max(8, budget)), SEP]; const markers = []; for (const o of opt) { markers.push(ids.length); ids.push(...o); } ids.push(SEP);
+    const room = Math.max(0, ML - ids.length - 1); ids.push(...stateIds.slice(0, room), SEP); return { ids: ids.slice(0, ML), markers: markers.filter(m => m < ML) };
+  }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const mt = this.tok.mask_token || "[MASK]";
+    const stateIds = this.ids(full.replaceAll(mt, " ")); const items = questions.map(q => ({ ...this.buildSequence(stateIds, q), qtype: { choice: 0, score: 1, noul: 2 }[q.type] }));
+    const n = items.length, L = Math.max(...items.map(i => i.ids.length)), K = Math.max(...items.map(i => i.markers.length)); const PAD = this.cfg.pad_id ?? 0;
+    const ids = new BigInt64Array(n * L).fill(BigInt(PAD)), att = new BigInt64Array(n * L), mpos = new BigInt64Array(n * K), mmask = new Uint8Array(n * K), qt = new BigInt64Array(n);
+    items.forEach((it, i) => { it.ids.forEach((x, j) => { ids[i * L + j] = BigInt(x); att[i * L + j] = 1n; }); it.markers.forEach((m, k) => { mpos[i * K + k] = BigInt(m); mmask[i * K + k] = 1; }); qt[i] = BigInt(it.qtype); });
+    opts.onProgress?.(`${questions.length} 問を 1 回で判定中（${this.name}, ${L} tok）`);
+    const out = await this.sess.run({ input_ids: new ort.Tensor("int64", ids, [n, L]), attention_mask: new ort.Tensor("int64", att, [n, L]), marker_pos: new ort.Tensor("int64", mpos, [n, K]), marker_mask: new ort.Tensor("bool", mmask, [n, K]), qtype: new ort.Tensor("int64", qt, [n]) });
+    const Z = Array.from(out.logits.data), Kout = out.logits.dims[1]; const temp = this.cfg.temperature || [1, 1, 1], tbo = this.cfg.temperature_by_options || {};
+    const answers = questions.map((q, i) => { const k = items[i].markers.length; let z = Z.slice(i * Kout, i * Kout + k); const size = k <= 2 ? "2" : k <= 5 ? "3-5" : k <= 10 ? "6-10" : "11+"; const tb = tbo[`${q.type}:${size}`] ?? temp[items[i].qtype] ?? 1; const T = Math.min(5, Math.max(0.5, +tb || 1)) * (opts.T || 1);
+      const labels = JevJa.optionsOf(q); if (q.type === "noul") z = [z[1], z[0]]; /* [false,true] → [yes,no] */ const p = softmax(z, T); return mkAnswer(q, labels, p, z); });
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: L, answers };
+  }
+}
 function mkAnswer(q, labels, p, z) { const am = p.indexOf(Math.max(...p)); const a = { id: q.id, type: q.type, distribution: { labels, probabilities: p }, logits: z, confidence: p[am] }; if (q.type === "choice") a.choice = labels[am]; else if (q.type === "score") { const vals = q.values || labels.map((_, i) => i); a.score = p.reduce((s, pi, i) => s + pi * vals[i], 0); a.level = labels[am]; } else { a.p_yes = p[0]; a.noul = p[0] >= 0.5; } return a; }
 export async function isStoredAny(name, files) { const ks = new Set(await store.keys()); return files.every(f => ks.has(`${name}/${f}`)); }
 
 /* registry + index からモデル一覧を作り、名前でロードする */
 export async function listAllModels() {
   const out = [];
-  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・端末内）" : "JEV-JA（自作・端末内・学習可）" }); } catch { }
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・PC ブラウザ向け）" : m.kind === "laya" ? "既存 Jev（Laya・多言語・PC ブラウザ向け）" : "JEV-JA（自作・スマホ可・学習可）" }); } catch { }
   try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.group || "既存 Jev（HF から取得）" }); } catch { }
   try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
   return out;
@@ -288,5 +329,6 @@ export async function loadModelByName(name, onProgress) {
   if (e.kind === "jev_ja") return new JevJa(name).load(onProgress);
   if (e.kind === "crossenc") return new CrossEncJev(e).load(onProgress);
   if (e.kind === "open-jev-onnx") return new OpenJevOnnx(e).load(onProgress);
+  if (e.kind === "laya") return new LayaJev(e).load(onProgress);
   throw new Error("unsupported kind: " + e.kind);
 }

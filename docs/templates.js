@@ -85,10 +85,25 @@ export const TEMPLATES = [
 
 /* 情報収集のプリセット（調べたいこと・向いている情報源・言語）。既定は未選択 */
 export const OSINT_PRESETS = [
-  { id: "jev", name: "Jev / 型付き判断モデルの最新動向", query: "Jev typed decision model, open-jev, typed-decisions", sources: ["hn", "gdelt", "bluesky", "wikipedia"], lang: "en", desc: "TypeSafe Jev、open-jev、Laya、GLiNER2 など「生成しない判断モデル」の話題。種類（発表/報道/投稿/意見）と具体性で仕分ける。関連研究の更新に。" },
+  { id: "jev", name: "Jev / 型付き判断モデルの最新動向", query: "Jev typed decision model, open-jev, typed-decisions", sources: ["hn", "github", "arxiv", "crossref", "bluesky", "mastodon"], lang: "en", desc: "TypeSafe Jev、open-jev、Laya、GLiNER2 など「生成しない判断モデル」の話題。種類（発表/報道/投稿/意見）と具体性で仕分ける。関連研究の更新に。" },
   { id: "ai_jp", name: "AI（日本語圏：規制・教育・製品）", query: "生成AI 規制, AI 教育 学校, 小型言語モデル", sources: ["bluesky", "gdelt", "wikipedia", "wikidata"], lang: "ja", desc: "日本語の AI 関連ニュースと投稿。公的発表（総務省・文科省）と意見を分ける練習に。" },
   { id: "ai_ondevice", name: "端末内推論（ONNX / WebGPU / 小型モデル）", query: "onnx runtime web webgpu, small language model on-device", sources: ["hn", "gdelt"], lang: "en", desc: "本ラボの技術基盤に関する技術系ニュース。" },
   { id: "disaster", name: "災害（気象庁＋地域名）", query: "津市 大雨", sources: ["jma", "wikipedia", "nominatim", "bluesky"], lang: "ja", desc: "公的発表（気象庁）と一般投稿を地理照合つきで並べる。" },
   { id: "factcheck", name: "噂の検証（地名・施設名で）", query: "美杉小学校 津波", sources: ["wikipedia", "wikidata", "nominatim", "bluesky"], lang: "ja", desc: "地名→座標→標高と Wikipedia の基礎情報を根拠にして、投稿の物理的整合を判定する。" },
+  { id: "paper", name: "論文サーベイ（arXiv・Crossref・Semantic Scholar）", query: "typed decisions calibrated classification", sources: ["arxiv", "crossref", "semanticscholar", "github"], lang: "en", desc: "卒論の関連研究用。論文・コードを一次情報として集め、JEV で関連度と種類を仕分ける。" },
   { id: "edu", name: "教育・技術科（学習指導要領・ICT）", query: "技術科 プログラミング教育, 情報モラル 授業", sources: ["gdelt", "bluesky", "wikipedia"], lang: "ja", desc: "教材研究用。報道と現場の声を分ける。" },
+];
+
+/* よく使う質問（「文章を判断」の「よく使う」から 1 クリックで追加） */
+export const QUICK_QUESTIONS = [
+  { type: "choice", id: "kind", instructions: "この情報の種類", options: ["公的機関の発表", "報道", "一般の投稿・目撃", "意見・感想", "宣伝・無関係"] },
+  { type: "score", id: "urgency", instructions: "今すぐ対応や確認が必要な度合い", levels: ["0", "1", "2", "3", "4", "5"] },
+  { type: "noul", id: "has_specifics", instructions: "日時・場所・数量など検証可能な具体情報が含まれているか" },
+  { type: "noul", id: "asks_spread", instructions: "拡散や転送を呼びかける表現があるか" },
+  { type: "noul", id: "supported", instructions: "根拠（context）の内容と整合しているか" },
+  { type: "noul", id: "needs_reply", instructions: "返信が必要か" },
+  { type: "score", id: "sentiment", instructions: "この文章の全体的な感情", levels: ["否定的", "やや否定的", "中立", "やや肯定的", "肯定的"] },
+  { type: "choice", id: "dept", instructions: "この問い合わせを担当すべき部署", options: ["請求・返金", "配送・物流", "技術サポート", "営業・契約", "その他"] },
+  { type: "choice", id: "topic", instructions: "主なテーマ", options: ["AI 規制・政策", "AI 技術・製品", "災害・防災", "教育", "経済・企業", "その他"] },
+  { type: "noul", id: "is_ad", instructions: "宣伝・広告か" },
 ];

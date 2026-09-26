@@ -8,141 +8,202 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <style>
-/* ---- レイアウト：上部にモデルバー、2 段ナビ（群 → タブ） ---- */
-.mbar{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.mbar select{width:auto;max-width:52vw}.mbar .pill{margin:0}
-.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:120px;max-width:260px}.prog>i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
+/* ---- 上部：モデルバー ---- */
+.mbar{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:8px 16px}
+.mbar .l1{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mbar select{width:auto;max-width:56vw}.mbar .pill{margin:0}
+.mbar .l2{font-size:13px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:100px;max-width:240px}.prog>i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
+/* ---- ナビ ---- */
 .groups{display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap}.groups button{border-radius:999px}.groups button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .tabs{padding:8px 16px 0;display:flex;gap:6px;flex-wrap:wrap}.tabs button.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc);font-weight:600}
 main{padding:12px 16px}
+/* ---- はじめて ---- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}.steps>div{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);font-size:14px}.steps b{display:block;color:var(--acc)}
+@media(max-width:800px){.steps{grid-template-columns:1fr}}
+.hint{font-size:13px;color:var(--muted);margin:4px 0}
+/* ---- 入力 ---- */
+.qbox{display:flex;gap:8px;align-items:stretch}.qbox input{font-size:17px;padding:12px;flex:1}.qbox button{white-space:nowrap;font-size:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.chip{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;cursor:pointer;background:var(--card);user-select:none}.chip.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc)}.chip input{display:none}
+.qcard{border:1px dashed var(--line);border-radius:10px;padding:10px;margin:8px 0}.qcard .hd{display:flex;gap:8px;align-items:center}.qcard .hd select{width:auto}.qcard .hd input{flex:1}
+.tw{overflow-x:auto}.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--line);font-size:12px;margin:2px}
+input[type=range]{width:100%}.note{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
+details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b45309}.bad{color:#be123c}
+canvas{max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px}
+/* ---- 答えカード ---- */
+.ans{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--card)}.ans .qt{font-size:13px;color:var(--muted)}.ans .big{font-size:20px;font-weight:700;margin:2px 0}
+.conf{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}.conf.hi{background:#dcfce7;color:#166534}.conf.mid{background:#fef3c7;color:#92400e}.conf.lo{background:var(--line);color:var(--muted)}
+:root[data-theme=dark] .conf.hi{background:#14532d;color:#bbf7d0}:root[data-theme=dark] .conf.mid{background:#78350f;color:#fde68a}
+.dist{display:grid;grid-template-columns:minmax(80px,32%) 1fr 56px;gap:4px 8px;align-items:center;font-size:13px}.dist .bar{height:8px}
+.stat{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin:4px 6px 4px 0}.stat b{font-size:18px}
+/* ---- 収集結果カード ---- */
+.item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--card);display:grid;grid-template-columns:1fr auto;gap:6px 12px}.item.new{border-left:4px solid var(--acc)}
+.item .meta{font-size:12px;color:var(--muted)}.item .ttl{font-weight:600}.item .txt{font-size:13px;color:var(--fg);max-height:3.2em;overflow:hidden}.item.open .txt{max-height:none}
+.item .jv{font-size:13px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.item .trust{text-align:center;min-width:64px}.item .trust b{font-size:22px;display:block}.item .trust .bar{height:6px;margin-top:2px}
+.item .act{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.item .act select{width:auto;padding:4px}
+.flag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:12px;border:1px solid var(--line)}.flag.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc)}.flag.alert{background:#fee2e2;border-color:#be123c;color:#7f1d1d}.chip.alert{border-color:#be123c;color:#be123c}.tool h2{margin-top:4px}
+:root[data-theme=dark] .flag.alert{background:#7f1d1d;color:#fecaca}
+.summary{border:1px solid var(--acc);border-radius:10px;padding:10px 12px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
 .tokstrip{line-height:2;font-size:13px;word-break:break-all}.tk{display:inline-block;padding:0 4px;margin:1px;border-radius:4px;border:1px solid var(--line)}
 .tk.state{background:color-mix(in srgb,var(--acc) 12%,transparent)}.tk[class*=instr]{background:color-mix(in srgb,#b45309 18%,transparent)}.tk[class*=opt]{background:color-mix(in srgb,#15803d 18%,transparent)}
 .tk.cls,.tk.sep,.tk.q,.tk.opt{font-weight:700;border-color:var(--acc)}
-.qcard{border:1px dashed var(--line);border-radius:10px;padding:10px;margin:8px 0}.qcard .hd{display:flex;gap:8px;align-items:center}.qcard .hd select{width:auto}.qcard .hd input{flex:1}
-canvas{max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--line);font-size:12px;margin:2px}
-input[type=range]{width:100%}.note{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
-details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b45309}
 /* chat */
 .chat{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding:6px}.msg{max-width:88%;padding:8px 12px;border-radius:12px;border:1px solid var(--line)}
-.msg.me{align-self:flex-end;background:color-mix(in srgb,var(--acc) 14%,transparent)}.msg.bot{align-self:flex-start;background:var(--card)}.msg .bar{margin:2px 0}
+.msg.me{align-self:flex-end;background:color-mix(in srgb,var(--acc) 14%,transparent)}.msg.bot{align-self:flex-start;background:var(--card)}
 .chatin{display:flex;gap:8px;margin-top:8px}.chatin textarea{min-height:44px;flex:1}
-.stat{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin:4px 6px 4px 0}.stat b{font-size:18px}
-.hidden{display:none}
+.hidden{display:none}button.big{font-size:16px;padding:10px 18px}
+mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 </style>
 </head>
 <body>
 <header><h1>JEV Lab <span class="muted small" id="ver"></span></h1><nav><a href="index.html">概要・結果</a><a href="play.html" class="on">情報収集・判断</a><a href="theory.html">仕組み</a></nav></header>
 
 <div class="mbar">
- <select id="model"></select>
- <button class="primary" id="load">読み込む</button>
- <span class="pill" id="mstate">未ロード</span>
- <div class="prog"><i id="progbar"></i></div>
- <span class="muted small" id="status"></span>
- <span class="small" id="offline"></span>
+ <div class="l1"><span class="small muted">モデル</span><select id="model"></select><button class="primary" id="load">読み込む</button><span class="pill" id="mstate">未ロード</span><div class="prog"><i id="progbar"></i></div><span class="muted small" id="status"></span><span class="small" id="offline"></span></div>
+ <div class="l2"><span id="mdesc"></span></div>
 </div>
 
 <div class="groups">
  <button data-g="use" class="on">使う</button><button data-g="research">研究</button><button data-g="learn">学ぶ・設定</button>
 </div>
-<div class="tabs" id="tabs-use"><button data-t="osint" class="on">情報収集</button><button data-t="tools">調査ツール</button><button data-t="chat">JEV チャット</button><button data-t="play">判断 Playground</button><button data-t="tmpl">用途テンプレ</button></div>
+<div class="tabs" id="tabs-use"><button data-t="osint" class="on">情報収集（話題）</button><button data-t="recon">調査（対象を指定）</button><button data-t="play">文章を判断</button><button data-t="bulk">一括判断</button><button data-t="chat">JEV チャット</button><button data-t="tools">ツール箱</button></div>
 <div class="tabs hidden" id="tabs-research"><button data-t="verify">検証</button><button data-t="batch">バッチ評価</button><button data-t="improve">改良（端末内学習）</button><button data-t="notes">実験ノート</button></div>
-<div class="tabs hidden" id="tabs-learn"><button data-t="viz">仕組み・可視化</button><button data-t="models">モデルを追加</button><button data-t="settings">保存・設定</button></div>
+<div class="tabs hidden" id="tabs-learn"><button data-t="viz">仕組み・可視化</button><button data-t="models">モデル</button><button data-t="settings">保存・設定</button></div>
 
 <main>
+<div class="steps" id="steps"><div><b>① モデルを読み込む</b>上の「読み込む」。初回だけダウンロード（jev_ja_30m は 47 MB）。以後は端末内から。</div><div><b>② 調べたいことを入れる</b>話題なら「情報収集」、ドメイン・IP・メール・座標などは「調査」。複数はカンマ区切り。</div><div><b>③ JEV が仕分ける</b>種類・緊急度・整合を端末内で判定（外部 AI に送らない）。人が読む件数を減らし、要確認だけ残します。<a href="#" id="steps-hide" class="small">（この案内を閉じる）</a></div></div>
 
 <!-- ================= 情報収集 ================= -->
 <section id="t-osint">
 <div class="card">
-<details><summary>利用方針（必読）</summary><p class="note small">運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。対象は<b>出来事・地域・話題</b>。個人の特定・追跡・プロファイリングには使わない。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。</p></details>
+<div class="qbox"><input id="o-q" value="" placeholder="調べたいこと（例: 津市 大雨 ／ Jev typed decision, open-jev）　カンマで複数" list="o-saved"><datalist id="o-saved"></datalist><button class="primary big" id="o-run">収集する</button></div>
+<div class="chips" id="o-src"></div>
+<div class="chips"><span class="small muted">例:</span><span id="o-presets"></span> <select id="o-hist" style="width:auto;padding:4px"><option value="">履歴</option></select> <button class="small" id="o-watch" title="履歴にある検索をまとめて再収集し、新着だけ表示">🔔 保存した検索の新着を確認</button></div>
+<p class="hint" id="o-hint">収集後に JEV が自動で整理します（モデル未読込なら収集だけ）。対象は出来事・地域・話題。個人の特定・追跡には使いません。<a href="#" id="o-policy-open">利用方針</a></p>
+<div class="note small hidden" id="o-policy">運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。個人の特定・追跡・プロファイリングには使わない。</div>
+<details><summary>詳細設定（件数・地域・言語・地理照合・重複・信頼性の重み）</summary>
 <div class="row"><div>
-<label>調べたいこと（キーワード。カンマ区切りで複数。Enter で収集）</label><input id="o-q" value="" placeholder="例: Jev typed decision model, open-jev　／　津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
-<div class="grid3"><div><label>プリセット（例を入れる）</label><select id="o-preset"><option value="">— 選ぶと埋まる —</option></select></div><div><label>履歴</label><select id="o-hist"><option value="">— 過去の検索 —</option></select></div><div><label>&nbsp;</label><label style="display:inline"><input type="checkbox" id="o-auto" checked style="width:auto"> 収集後に自動で JEV 整理</label></div></div>
-<label>情報源</label><div id="o-src"></div>
 <div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
-<p><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名→座標→標高）</label> <label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
+<p><label style="display:inline"><input type="checkbox" id="o-auto" checked style="width:auto"> 収集後に自動で JEV 整理</label><br><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名→座標→標高）</label><br><label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
 </div><div>
-<label>信頼性スコアの重み（編集すると順位が変わる）</label><div id="o-w" class="kv"></div>
-<label>根拠（context）— 収集後に自動で入る。編集して照合に使う</label><textarea id="o-ctx" style="min-height:70px" placeholder="1 行 1 件"></textarea>
+<label>信頼性スコアの重み（変えると順位が変わる）</label><div id="o-w" class="kv"></div>
 </div></div>
-<p><button class="primary" id="o-run">1. 収集する</button> <button id="o-judge" disabled>2. JEV で整理・照合</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-md" disabled>Markdown レポート</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>3. 人手ラベル → JSONL</button></p>
+</details>
+<label>根拠（context）— 収集後に公的情報と地理情報が自動で入る。編集して照合に使う</label><textarea id="o-ctx" style="min-height:60px" placeholder="1 行 1 件。空でも動く"></textarea>
+<p><button id="o-judge" disabled>JEV で整理・照合し直す</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-md" disabled>Markdown レポート</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>人手ラベル → JSONL</button></p>
 <p class="muted small" id="o-diff"></p>
+<div id="o-summary"></div>
 <div id="o-stats"></div>
-<p><label>結果を絞り込む（本文・出典に含む語。ハイライト）</label><input id="o-filter" placeholder="例: 警報, 避難"> <label style="display:inline"><input type="checkbox" id="o-only-new" style="width:auto"> 新着のみ</label> <label style="display:inline"><input type="checkbox" id="o-only-official" style="width:auto"> 公的・報道のみ</label></p>
+<details id="o-triage-box" class="hidden"><summary>仕分けのしきい値（JEV の確信度で自動振り分け）</summary><div class="kv"><span>自動採用 信頼性 ≥</span><span><input type="range" id="o-th-hi" min="0.5" max="0.95" step="0.05" value="0.7" style="width:50%"> <b id="o-th-hi-v">0.70</b></span><span>除外 信頼性 &lt;</span><span><input type="range" id="o-th-lo" min="0.05" max="0.5" step="0.05" value="0.3" style="width:50%"> <b id="o-th-lo-v">0.30</b></span></div><p class="hint">その間が「人手確認」。JEV は確率を返すので、しきい値で運用を変えられる（LLM の文章回答ではこれができない）。</p></details>
+<div class="chips"><input id="o-filter" placeholder="絞り込み（語をカンマ区切り。ハイライト）" style="width:auto;flex:1;min-width:160px"> <select id="o-sort" style="width:auto;padding:4px"><option value="trust">信頼性順</option><option value="time">新しい順</option><option value="source">出典順</option><option value="urgency">緊急度順</option></select> <label class="chip"><input type="checkbox" id="o-only-new"> 新着のみ</label> <label class="chip"><input type="checkbox" id="o-only-official"> 公的・報道のみ</label> <label class="chip"><input type="checkbox" id="o-only-check"> 要確認のみ</label></div>
 <div id="o-out"></div>
 </div>
 </section>
 
-<!-- ================= 調査ツール ================= -->
-<section id="t-tools" class="hidden">
-<div class="card"><p class="note small">動画で紹介される「情報収集ツール」のうち、<b>公開情報を受動的に読むだけ</b>の手法をブラウザで再現。対象はサイト・ドメイン・出来事。個人の特定・追跡には使わない。Shodan・HIBP など API キーが必要なものと、ユーザー名の横断照会（個人対象）は実装しない。</p></div>
-<div class="row">
-<div class="card"><h2>① 検索演算子（dork）ビルダー</h2><p class="muted small">Google 等の検索演算子で「公開されている文書」を狙って探す。URL を組み立てて開くだけで、自動巡回はしない。</p>
-<label>プリセット</label><select id="d-preset"><option value="">—</option></select>
-<div class="row"><div><label>キーワード</label><input id="d-q" placeholder="例: 避難所 開設状況"></div><div><label>site:</label><input id="d-site" placeholder="例: city.tsu.lg.jp"></div><div><label>filetype:</label><input id="d-ft" placeholder="pdf / xlsx / csv"></div><div><label>intitle:</label><input id="d-title"></div><div><label>inurl:</label><input id="d-url"></div><div><label>除外語（カンマ）</label><input id="d-ex"></div><div><label>after:（YYYY-MM-DD）</label><input id="d-after"></div><div><label>before:</label><input id="d-before"></div></div>
-<p><label style="display:inline"><input type="checkbox" id="d-exact" style="width:auto"> キーワードを完全一致（"…"）</label> <button class="primary" id="d-build">組み立てる</button></p><div id="d-out"></div></div>
-<div class="card"><h2>② ドメインの素性（DNS・WHOIS/RDAP・Wayback・証明書ログ）</h2><p class="muted small">「そのサイトはいつからあるか／誰が運用しているか／どんなホストがあるか」。結果は根拠として情報収集に渡せる。</p>
-<label>ドメインまたは URL</label><input id="t-domain" placeholder="例: jma.go.jp"><p><button class="primary" id="t-domain-run">調べる</button> <button id="t-domain-ctx" disabled>→ 根拠に追加</button></p><div id="t-domain-out"></div></div>
-<div class="card"><h2>③ 画像のメタデータ（EXIF / GPS）</h2><p class="muted small">自分の端末で選んだ画像を<b>端末内で</b>読む（送信しない）。SNS 経由の画像は通常メタデータが消えている＝「消えていないなら一次投稿の可能性」という手がかり。</p>
-<input type="file" id="t-exif" accept="image/*"><div id="t-exif-out"></div></div>
-<div class="card"><h2>④ 逆画像検索・横断検索リンク</h2><p class="muted small">画像 URL やキーワードを各サービスで開く。使い回し画像（別の災害・別の年の写真）の発見に。</p>
-<label>画像の URL</label><input id="t-img" placeholder="https://…/photo.jpg"><p><button id="t-img-run">リンクを作る</button></p><div id="t-img-out"></div></div>
+
+<!-- ================= 調査（対象を指定） ================= -->
+<section id="t-recon" class="hidden">
+<div class="card">
+<div class="qbox"><input id="r-q" placeholder="対象（複数はカンマ／改行）例: jma.go.jp, 8.8.8.8, info@example.com, @username, 34.73,136.51, CVE-2024-3094, JAL123, corp:三重大学" list="r-saved"><datalist id="r-saved"></datalist><button class="primary big" id="r-run">調べる</button></div>
+<div class="chips" id="r-types"><span class="small muted">判定される種類がここに出ます（接頭辞で指定も可: corp: / place: / user: / mail: / tel: / ip: / hash: / flight: / ship: / btc: / eth: / cve: / img:）</span></div>
+<p class="hint">種類ごとに「公開 API（鍵不要・CORS 可）」を自動で叩き、残りは各サービスの検索ページをリンクで開く（OSINT Framework と同じ形）。人物検索・出会い系・ダークウェブ・テロ関連は実装しない。結果は根拠として「情報収集」に渡せる。<a href="#" id="r-fw-open">OSINT フレームワーク一覧（何が自動で、何がリンクか）</a></p>
+<div id="r-fw" class="hidden"></div>
+<div id="r-out"></div>
+</div>
+</section>
+
+<!-- ================= 文章を判断（Playground） ================= -->
+<section id="t-play" class="hidden">
+<div class="row"><div class="card">
+<label>用途テンプレ <span class="muted">— 選ぶと例が入る（既定は空）</span></label><select id="p-tmpl"><option value="">— 自分で入力 —</option></select>
+<label>判断したい文章（state）</label><textarea id="p-state" placeholder="例: 先週注文した商品が二重に請求されています。今週中に返金されない場合は解約します。"></textarea>
+<label>根拠（context、任意。1 行 1 件）<span class="muted">— 公的情報や事実。「根拠と整合しているか」の照合に使う</span></label><textarea id="p-ctx" style="min-height:50px"></textarea>
+<label>質問 <span class="muted">— Choice＝どれか一つ／Score＝段階／Noul＝はい・いいえ</span></label>
+<div id="qb"></div>
+<div class="chips"><button class="small" id="q-add-choice">＋ Choice</button> <button class="small" id="q-add-score">＋ Score</button> <button class="small" id="q-add-noul">＋ Noul</button> <span class="muted small">よく使う:</span> <select id="q-quick" style="width:auto;padding:4px"><option value="">— 追加 —</option></select> <button class="small" id="q-save">セット保存</button> <select id="q-sets" style="width:auto;padding:4px"><option value="">保存済みセット</option></select></div>
+<details><summary class="small">JSON で直接編集</summary><textarea id="p-q" style="min-height:140px;font-family:monospace;font-size:12px"></textarea><p><button id="q-apply">JSON を反映</button></p></details>
+<p><button class="primary big" id="p-run" disabled>判断する</button> <button id="p-note">実験ノートに保存</button> <button id="p-save">結果 JSON</button> <span class="muted small" id="p-hint"></span></p>
+</div>
+<div class="card">
+<div id="p-out"><span class="muted">モデルを読み込み、文章と質問を入れて「判断する」</span></div>
+<details style="margin-top:8px"><summary class="small">詳細設定（温度・読み出し・手法）</summary><div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b> <span class="muted small">大きいほど確率が平ら</span></span>
+<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker</label> <span class="muted small">（JEV-JA のみ）</span></span>
+<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos ×<input id="cosScale" value="20" style="width:52px;display:inline"></label></span></div></details>
+</div></div>
+</section>
+
+<!-- ================= 一括判断 ================= -->
+<section id="t-bulk" class="hidden">
+<div class="card">
+<p class="hint">複数の文章（問い合わせ・投稿・アンケート回答など）に同じ質問をまとめて当て、表と CSV にする。JEV は生成しないので 1 件あたり数十〜数百 ms。</p>
+<div class="row"><div>
+<label>用途テンプレ（質問と例文が入る）</label><select id="k-tmpl"><option value="">— 「文章を判断」の質問を使う —</option></select>
+<label>テキスト（1 行 1 件）</label><textarea id="k-texts" style="min-height:160px" placeholder="1 行に 1 件"></textarea>
+<input type="file" id="k-file" accept=".txt,.csv" style="width:auto"> <span class="muted small">.txt / .csv（1 列目）を読み込み</span>
+</div><div>
+<label>根拠（任意、全件に共通）</label><textarea id="k-ctx" style="min-height:60px"></textarea>
+<label>並び替えキー（質問 id）</label><input id="k-sort" placeholder="例: urgency">
+<p><button class="primary big" id="k-run" disabled>一括判断</button> <button id="k-stop" disabled>中止</button> <button id="k-csv" disabled>CSV</button> <button id="k-note" disabled>実験ノートに保存</button></p>
+<div class="prog"><i id="k-prog"></i></div>
+</div></div>
+<div id="k-summary"></div>
+<div id="k-out" class="tw"></div>
 </div>
 </section>
 
 <!-- ================= JEV チャット ================= -->
 <section id="t-chat" class="hidden">
 <div class="card">
-<p class="muted small">文章を送ると、いま設定されている質問（Playground の質問セット。既定は情報収集用 6 問）で JEV が判断して返す。JEV は生成しないので、返答は「確率つきの判定＋定型の説明」。コマンド：<code>/q choice id 質問 | 選択肢1 | 選択肢2</code>、<code>/q score id 質問 | 低 | 中 | 高</code>、<code>/q noul id 質問</code>、<code>/ctx 根拠文</code>、<code>/osint 調べたいこと</code>（収集して要約）、<code>/preset 名前</code>、<code>/clear</code>、<code>/help</code></p>
+<div class="chips"><span class="small muted">質問セット:</span><select id="c-mode" style="width:auto;padding:4px"><option value="osint">情報の仕分け（種類・緊急度・具体性・拡散・整合）</option><option value="play">「文章を判断」の質問</option></select> <button class="small c-quick" data-q="/qs">いまの質問</button> <button class="small c-quick" data-q="/help">使い方</button> <button class="small c-quick" data-q="/ctx clear">根拠を消す</button></div>
+<p class="hint">文章を送ると質問セットで判断。<b>「? 避難が必要か」</b>のように ? で始めると直前の文章に対する はい/いいえ の質問、<b>「? 担当は | 請求 | 配送 | 技術」</b>で選択式。JEV は生成しないので返答は確率つきの判定です。</p>
 <div class="chat" id="chat"></div>
-<p><button class="small c-quick" data-q="/qs">いまの質問</button> <button class="small c-quick" data-q="/help">コマンド</button> <button class="small c-quick" data-q="/ctx clear">根拠を消す</button> <button class="small c-quick" data-q="/preset">プリセット一覧</button></p>
-<div class="chatin"><textarea id="c-in" placeholder="文章を入力（Enter で送信、Shift+Enter で改行）。/osint キーワード で収集→整理"></textarea><button class="primary" id="c-send" disabled>送信</button></div>
+<div class="chatin"><textarea id="c-in" placeholder="文章、または ? 質問（Enter で送信、Shift+Enter で改行）"></textarea><button class="primary" id="c-send" disabled>送信</button></div>
 </div>
 </section>
 
-<!-- ================= 判断 Playground ================= -->
-<section id="t-play" class="hidden">
-<div class="row"><div class="card">
-<label>用途テンプレ（選ぶと例が入る。既定は空）</label><select id="p-tmpl"><option value="">— 空のまま —</option></select>
-<label>state（状況・本文）</label><textarea id="p-state"></textarea>
-<label>context（根拠。1 行 1 件）</label><textarea id="p-ctx" style="min-height:60px"></textarea>
-<label>questions <span class="muted">（＋で追加）</span></label>
-<div id="qb"></div>
-<p><button id="q-add-choice">＋ Choice</button> <button id="q-add-score">＋ Score</button> <button id="q-add-noul">＋ Noul</button> <button id="q-save">質問セットを保存</button> <select id="q-sets" style="width:auto"><option value="">保存済みセット</option></select></p>
-<details><summary>JSON で直接編集</summary><textarea id="p-q" style="min-height:160px;font-family:monospace;font-size:12px"></textarea><p><button id="q-apply">JSON を反映</button></p></details>
-<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-note">実験ノートに保存</button> <button id="p-save">結果 JSON</button></p>
-</div>
-<div class="card">
-<div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b></span>
-<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker</label> <span class="muted small">（JEV-JA のみ）</span></span>
-<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos ×<input id="cosScale" value="20" style="width:52px;display:inline"></label></span></div>
-<div id="p-out"><span class="muted">モデルを読み込んでから「判断する」</span></div>
-</div></div>
+<!-- ================= ツール箱 ================= -->
+<section id="t-tools" class="hidden">
+<div class="card"><p class="hint">動画・OSINT Framework で紹介される「ツール」のうち、<b>公開情報を受動的に読む</b>か<b>自分のファイルを端末内で処理する</b>ものを再現。ファイルは送信しない。ドメイン・IP・メール等の自動調査は「調査」タブ。</p>
+<div class="chips" id="tool-nav"></div></div>
+<div class="card tool" id="tool-dork"><h2>🔍 検索演算子（Google dorks）ビルダー</h2><p class="muted small">検索演算子で「公開されている文書」を狙って探す。URL を組み立てて開くだけで、自動巡回はしない。</p>
+<div class="row"><div><label>用途別ライブラリ（{q} は下のキーワード、{d} はドメイン）</label><select id="d-lib"><option value="">— 選ぶと式が入る —</option></select><label>キーワード／対象</label><input id="d-q" placeholder="例: 避難所 開設状況 ／ city.tsu.lg.jp"></div>
+<div><div class="row"><div><label>site:</label><input id="d-site" placeholder="city.tsu.lg.jp"></div><div><label>filetype:</label><input id="d-ft" placeholder="pdf"></div><div><label>intitle:</label><input id="d-title"></div><div><label>inurl:</label><input id="d-url"></div><div><label>intext:</label><input id="d-text"></div><div><label>除外語（カンマ）</label><input id="d-ex"></div><div><label>after:</label><input id="d-after" placeholder="YYYY-MM-DD"></div><div><label>before:</label><input id="d-before"></div><div><label>OR グループ（カンマ）</label><input id="d-or" placeholder="氾濫, 冠水"></div><div><label>数値範囲 a..b</label><input id="d-range" placeholder="5..7"></div></div>
+<p><label style="display:inline"><input type="checkbox" id="d-exact" style="width:auto"> 完全一致（"…"）</label></p></div></div>
+<p><label>式（直接編集できる）</label><textarea id="d-expr" style="min-height:44px;font-family:monospace"></textarea></p>
+<p><button class="primary" id="d-build">組み立てる</button> <button id="d-open">各エンジンで開く</button> <button class="small" id="d-copy">コピー</button></p><div id="d-out"></div>
+<details><summary class="small">演算子一覧（Google / Bing / DuckDuckGo）</summary><div class="tw" id="d-ops"></div></details></div>
+<div class="card tool" id="tool-image"><h2>🖼 画像：EXIF / GPS・ELA（改ざん痕）・逆画像検索</h2><p class="muted small">自分の端末の画像を<b>端末内で</b>読む。SNS 経由の画像は通常 EXIF が消えている＝残っていれば一次投稿の可能性。ELA は再圧縮の差分で編集領域を浮かび上がらせる（FotoForensics と同じ原理、断定はしない）。</p>
+<input type="file" id="t-exif" accept="image/*"><div id="t-exif-out"></div><canvas id="t-ela" class="hidden" style="max-width:100%"></canvas>
+<div class="qbox" style="margin-top:8px"><input id="t-img" placeholder="画像 URL → 逆画像検索（Google Lens / Bing / Yandex / TinEye）"><button id="t-img-run">リンクを作る</button></div><div id="t-img-out"></div></div>
+<div class="card tool" id="tool-doc"><h2>📄 文書メタデータ（PDF / Word / Excel / PowerPoint）</h2><p class="muted small">FOCA / Metagoofil 相当。作成者・最終更新者・作成ソフト・編集時間を端末内で読む。公開前の自分の文書の点検にも。</p><input type="file" id="t-doc" accept=".pdf,.docx,.xlsx,.pptx"><div id="t-doc-out"></div></div>
+<div class="card tool" id="tool-codec"><h2>🔣 変換（CyberChef 相当）・文字列の種類判定</h2><div class="row"><div><label>入力</label><textarea id="c-input" style="min-height:70px"></textarea><label>操作</label><select id="c-op"></select><p><button class="primary" id="c-run">変換</button> <button id="c-ident">種類を判定</button> <button id="c-hash">SHA-256 / SHA-1</button></p></div><div><label>出力</label><textarea id="c-output" style="min-height:70px;font-family:monospace"></textarea><div id="c-note" class="small muted"></div></div></div></div>
+<div class="card tool" id="tool-file"><h2>🧪 ファイルのハッシュ → VirusTotal / MalwareBazaar で検索</h2><p class="muted small">ファイルは<b>送信しない</b>。端末内で SHA-256 を計算し、そのハッシュで公開データベースを検索する（既知のファイルなら結果が見られる）。証拠ファイルの同一性確認にも。</p><input type="file" id="t-file"><div id="t-file-out"></div></div>
+<div class="card tool" id="tool-sun"><h2>☀️ 太陽の方位・高度（写真の影と撮影時刻の整合）</h2><p class="muted small">緯度経度と日時から太陽の方位と高度を計算（NOAA 近似式）。影の向き＝太陽と反対、影の長さ＝高さ × 1/tan(高度)。</p><div class="grid3"><div><label>緯度, 経度</label><input id="s-ll" placeholder="34.73, 136.51"></div><div><label>日時（端末のタイムゾーン）</label><input id="s-dt" type="datetime-local"></div><div><label>&nbsp;</label><button class="primary" id="s-run">計算</button></div></div><div id="s-out"></div></div>
+<div class="card tool" id="tool-phone"><h2>☎️ 電話番号の書式・種別（端末内）</h2><p class="muted small">携帯 / IP 電話（050）/ フリーダイヤル / 固定（市外局番）を判定。持ち主の特定はしない。</p><div class="qbox"><input id="ph-q" placeholder="059-xxx-xxxx / +81 90 …"><button class="primary" id="ph-run">判定</button></div><div id="ph-out"></div></div>
+<div class="card tool" id="tool-opsec"><h2>🛡 OpSec：ブラウザの露出情報／パスワード漏えい確認</h2><p class="muted small">「調べる側」が特定されないための自己点検。何も送信しない（パスワードは SHA-1 の先頭 5 文字だけを送る k-匿名性方式）。</p><p><button id="fp-run">このブラウザが相手に見せている情報</button></p><div id="fp-out" class="kv"></div><div class="qbox" style="margin-top:8px"><input id="pw-q" type="password" placeholder="自分のパスワード（端末内でハッシュ化）"><button id="pw-run">漏えい確認</button></div><div id="pw-out"></div></div>
+<div class="card tool" id="tool-learn"><h2>📚 学ぶ・証拠保全・関連ツール</h2><div id="learn-links"></div></div>
 </section>
-
-<!-- ================= 用途テンプレ ================= -->
-<section id="t-tmpl" class="hidden"><div class="card" id="tmpl-list"></div></section>
 
 <!-- ================= 検証 ================= -->
 <section id="t-verify" class="hidden">
-<div class="card"><p class="muted small">Playground の入力を使い「何を変えると出力がどう変わるか」を測る。</p>
+<div class="card"><p class="hint">「文章を判断」に入れた文章・根拠・質問を使い、<b>何を変えると出力がどう変わるか</b>を測る。各項目に「良い結果」の目安を書いた。</p>
 <div class="row">
- <div><h2>① 根拠あり／なし</h2><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
- <div><h2>② 選択肢の順序シャッフル</h2><input id="v-n" value="8" style="width:80px"> 回 <button id="v-shuf">実行</button><div id="v-shuf-out"></div></div>
- <div><h2>③ Noul の否定形</h2><button id="v-neg">実行</button><div id="v-neg-out"></div></div>
- <div><h2>④ 選択肢を 1 つ抜く</h2><button id="v-drop">実行</button><div id="v-drop-out"></div></div>
- <div><h2>⑤ モデル × 手法 マトリクス</h2><p class="muted small">JEV-JA は head/cos × span/marker、HF モデルは 1 行。</p><select id="v-models" multiple size="5"></select><p><button id="v-cmp">実行</button> <button id="v-cmp-note">ノートに保存</button></p><div id="v-cmp-out"></div></div>
- <div><h2>⑥ 推論時間</h2><input id="v-bn" value="10" style="width:80px"> 回 <button id="v-bench">実行</button><div id="v-bench-out"></div></div>
+ <div><h2>① 根拠あり／なし</h2><p class="muted small">根拠（context）を外すと答えや分布がどれだけ動くか。動けば根拠を参照している。L1 = 確率ベクトルの差の絶対値の和（0〜2）。</p><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
+ <div><h2>② 選択肢の順序シャッフル</h2><p class="muted small">順序を変えても同じ答えなら位置バイアスが小さい（一致率 100% が理想）。</p><input id="v-n" value="8" style="width:80px"> 回 <button id="v-shuf">実行</button><div id="v-shuf-out"></div></div>
+ <div><h2>③ Noul の否定形</h2><p class="muted small">質問を否定形にすると p(yes) が反転するか。反転しなければ質問文を読まず状況だけで答えている。</p><button id="v-neg">実行</button><div id="v-neg-out"></div></div>
+ <div><h2>④ 選択肢を 1 つ抜く</h2><p class="muted small">最尤の選択肢を抜いたとき、次に妥当な選択肢に移るか（分布の一貫性）。</p><button id="v-drop">実行</button><div id="v-drop-out"></div></div>
+ <div><h2>⑤ モデル × 手法 マトリクス</h2><p class="muted small">同じ入力を複数モデルで。JEV-JA は head/cos × span/marker、HF モデルは 1 行。</p><select id="v-models" multiple size="5"></select><p><button id="v-cmp">実行</button> <button id="v-cmp-note">ノートに保存</button></p><div id="v-cmp-out" class="tw"></div></div>
+ <div><h2>⑥ 推論時間</h2><p class="muted small">同じ入力を繰り返し、p50/p95 を測る（Fast 軸）。</p><input id="v-bn" value="10" style="width:80px"> 回 <button id="v-bench">実行</button><div id="v-bench-out"></div></div>
 </div></div>
 </section>
 
 <!-- ================= バッチ評価 ================= -->
 <section id="t-batch" class="hidden">
 <div class="card">
+<p class="hint">gold 付き JSONL を端末内で評価し、精度・Brier・ECE・速度を実験ノートに記録する。95% 信頼区間（ブートストラップ）と多数決・ランダムのベースラインを並べて表示。</p>
 <p><label>公開データ（docs/bench/）</label><select id="b-ds"></select> <button id="b-sample">読み込む</button> <label>または自分の JSONL</label><input type="file" id="b-file" accept=".jsonl,.json,.txt"> <span class="muted" id="b-info"></span></p>
 <p><label>family で絞る（カンマ区切り、空＝全部）</label><input id="b-family"> <label>最大 state 数（0＝全部）</label><input id="b-limit" value="0" style="width:90px"></p>
-<p><label style="display:inline"><input type="checkbox" id="b-ctx" checked style="width:auto"> context を使う</label> <label>実験名</label><input id="b-name" placeholder="空なら自動"> <button class="primary" id="b-run" disabled>評価する</button> <button id="b-stop" disabled>中止</button> <button id="b-dl">結果 JSON</button> <button id="b-csv">行 CSV</button></p>
+<p><label style="display:inline"><input type="checkbox" id="b-ctx" checked style="width:auto"> context を使う</label> <label>実験名</label><input id="b-name" placeholder="空なら自動"> <button class="primary" id="b-run" disabled>評価する</button> <button id="b-stop" disabled>中止</button> <button id="b-dl">結果 JSON</button> <button id="b-csv">行 CSV</button> <button id="b-png">較正図 PNG</button></p>
 <div class="prog"><i id="b-prog"></i></div>
 <div id="b-out"></div>
 <canvas id="b-cal" width="360" height="360" class="hidden"></canvas>
@@ -153,7 +214,7 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <section id="t-improve" class="hidden">
 <div class="card">
 <h2>JEV-JA の判断ヘッドを、この端末で再学習する</h2>
-<p class="muted small">エンコーダは固定し、判断ヘッド（MLP 約 40 万パラメータ）だけを JS で学習する。数百件なら数十秒。学習前後を同じ検証データで比べ、良ければ保存（以後この端末の JEV-JA はそのヘッドを使う）。PC の学習（<code>train_jev_ja.py</code>）はエンコーダごと更新する本格版。</p>
+<p class="hint">エンコーダは固定し、判断ヘッド（MLP 約 40 万パラメータ）だけを JS で学習する。数百件なら数十秒。学習前後を同じ検証データで比べ、良ければ保存（以後この端末の JEV-JA はそのヘッドを使う）。PC の学習（<code>train_jev_ja.py</code>）はエンコーダごと更新する本格版。</p>
 <div class="row"><div>
 <label>学習データ</label>
 <select id="i-src"><option value="batch">バッチ評価に読み込んだ JSONL（gold 付き）</option><option value="osint">情報収集の人手ラベル（今の画面）</option><option value="file">JSONL ファイル</option></select>
@@ -173,39 +234,37 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <!-- ================= 実験ノート ================= -->
 <section id="t-notes" class="hidden">
 <div class="card">
-<p class="muted small">この端末の実験記録（IndexedDB）。卒論の表はここから CSV。</p>
-<p><button id="n-csv">全件 CSV</button> <button id="n-json">全件 JSON</button> <input type="file" id="n-import" accept=".json" style="width:auto"> <button id="n-clear">全削除</button> <label style="display:inline">比較: <select id="n-a" style="width:auto"></select> vs <select id="n-b" style="width:auto"></select> <button id="n-cmp">差を見る</button></label></p>
+<p class="hint">この端末の実験記録（IndexedDB）。卒論の表は「卒論用の表」か CSV から。</p>
+<p><button id="n-table">卒論用の表（Markdown）</button> <button id="n-csv">全件 CSV</button> <button id="n-json">全件 JSON</button> <input type="file" id="n-import" accept=".json" style="width:auto"> <button id="n-clear">全削除</button> <label style="display:inline">比較: <select id="n-a" style="width:auto"></select> vs <select id="n-b" style="width:auto"></select> <button id="n-cmp">差を見る</button></label></p>
 <div id="n-cmp-out"></div>
-<div id="n-list"></div>
+<textarea id="n-md" class="hidden" style="min-height:160px;font-family:monospace;font-size:12px"></textarea>
+<div id="n-list" class="tw"></div>
 </div>
 </section>
 
 <!-- ================= 仕組み・可視化 ================= -->
 <section id="t-viz" class="hidden">
 <div class="card">
-<p>詳しい数式と解説は <a href="theory.html">仕組みページ</a>。ここでは<b>直近の判断</b>の中身を見る。</p>
+<p>詳しい数式と解説は <a href="theory.html">仕組みページ</a>。ここでは<b>直近の判断</b>（JEV-JA）の中身を見る。</p>
 <h2>1. 入力列</h2><div id="viz-tokens" class="tokstrip muted">まだ判断していません（JEV-JA のみ）</div>
-<h2>2. 質問ベクトル u と選択肢ベクトル v の cos</h2><div id="viz-uv"></div>
-<h2>3. logit → softmax</h2><div class="formula" id="f2"></div><div id="viz-logits"></div>
-<h2>4. PCA（● 質問 u、○ 選択肢 v）</h2><canvas id="viz-pca" width="640" height="360"></canvas>
+<h2>2. 質問ベクトル u と選択肢ベクトル v の cos</h2><div id="viz-uv" class="tw"></div>
+<h2>3. logit → softmax</h2><div class="formula" id="f2"></div><div id="viz-logits" class="tw"></div>
+<h2>4. PCA（● 質問 u、○ 選択肢 v）</h2><canvas id="viz-pca" width="640" height="360"></canvas> <button class="small" id="viz-png">PNG</button>
 <h2>5. 処理時間</h2><div id="viz-time" class="kv"></div>
 </div>
 </section>
 
-<!-- ================= モデルを追加 ================= -->
+<!-- ================= モデル ================= -->
 <section id="t-models" class="hidden">
 <div class="card">
-<h2>使えるモデル</h2><div id="m-list"></div>
+<h2>使えるモデル</h2><p class="hint">すべて Jev 級（state + 型付き質問 → 1 forward で較正済み分布、生成しない）。スマホは jev_ja_30m（47 MB）、PC ブラウザなら Laya / argos（約 320 MB）も。</p><div id="m-list" class="tw"></div>
 <h2>Hugging Face で Jev 級モデルを探す</h2>
-<p><input id="m-search" value="jev" style="width:60%"> <button id="m-search-run">検索</button> <span class="muted small">HF API（公開）。transformers.js / onnx タグがあるものはブラウザ実行の候補。それ以外は PC（config/models.yaml）用</span></p>
-<div id="m-search-out"></div>
-<h2>Hugging Face のモデルを追加（コピペ）</h2>
-<p class="muted small">Transformers.js 対応（ONNX 同梱）のリポを指定。<b>hf-zeroshot</b> は NLI 系（zero-shot-classification）、<b>hf-embed</b> は文埋め込み（feature-extraction）。追加後は上のモデル欄に出る。PC 専用（GLiNER2 / open-jev / LLM）は <code>config/models.yaml</code>。</p>
-<p class="muted small">対応する kind：<b>open-jev-onnx</b>（open-jev 形の Transformers.js 版。入力 input_ids/attention_mask/seg/pair_q/pair_opt）、<b>crossenc</b>（日本語 Jev cross-encoder。PC で <code>export_crossenc.py --hf 〈id〉 --name 〈name〉</code> を実行して docs/models/ に置き、push してから登録）。Jev 級でないモデル（NLI・埋め込み・LLM）はこのラボの比較対象にしない。</p>
-<textarea id="m-json" style="min-height:120px;font-family:monospace;font-size:12px">{ "name": "open_jev_laya_multi", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "language": "en", "note": "" }</textarea>
+<div class="qbox"><input id="m-search" value="jev"><button id="m-search-run">検索</button></div><p class="muted small">HF API（公開）。最終更新順。transformers.js / onnx タグがあるものはブラウザ実行の候補。それ以外は PC（config/models.yaml）用。</p>
+<div id="m-search-out" class="tw"></div>
+<h2>モデルを追加（コピペ）</h2>
+<p class="muted small">対応する kind：<b>open-jev-onnx</b>（open-jev 形の Transformers.js 版。HF から直接）、<b>crossenc</b>（日本語 Jev cross-encoder。PC で <code>export_crossenc.py</code>）、<b>laya</b>（Laya 系。PC で <code>export_laya.py</code>）。crossenc / laya は docs/models/ に置いて push すると index.json に自動登録される。Jev 級でないモデル（NLI・埋め込み・LLM）は比較対象にしない。</p>
+<textarea id="m-json" style="min-height:100px;font-family:monospace;font-size:12px">{ "name": "open_jev_deberta_v3_large", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "temperature": 1.05, "language": "en", "note": "" }</textarea>
 <p><button class="primary" id="m-add">追加</button> <button id="m-clear">追加分を全削除</button></p>
-<details><summary>例（コピペ用）</summary><pre class="small">{ "name": "open_jev_deberta_v3_large", "kind": "open-jev-onnx", "hf_id": "onnx-community/open-jev-deberta-v3-large-ONNX", "dtype": "q4", "dtype_webgpu": "q4f16", "temperature": 1.05, "language": "en" }
-{ "name": "jev_ja_310m_argos", "kind": "crossenc", "language": "ja" }   ← docs/models/jev_ja_310m_argos/ を export_crossenc.py で作った場合（index.json に自動登録される）</pre></details>
 </div>
 </section>
 
@@ -216,7 +275,7 @@ details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b
 <p class="muted small" id="storage"></p>
 <p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
 <h2>設定のバックアップ</h2><p><button id="s-backup">質問セット・重み・追加モデル・実験ノートを JSON で保存</button> <input type="file" id="s-restore" accept=".json" style="width:auto"></p>
-<h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label></p>
+<h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label> <label style="display:inline"><input type="checkbox" id="s-steps" style="width:auto"> はじめての案内を表示</label></p>
 <h2>端末情報</h2><div id="s-env" class="kv"></div>
 </div>
 </section>

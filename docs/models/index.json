@@ -15,6 +15,16 @@
       "language": "ja",
       "license": "CC BY-SA 4.0",
       "note": "既存の日本語 Jev（ModernBERT-Ja-310m cross-encoder、JGLUE 等で検証精度 0.90）。int8 316MB、PC ブラウザ向け"
+    },
+    {
+      "name": "laya_multi_322m",
+      "kind": "laya",
+      "size_mb": 323.1,
+      "trained": true,
+      "backbone": "convaiinnovations/laya-multilingual",
+      "language": "multilingual",
+      "license": "Apache-2.0",
+      "note": "Laya（Convai Innovations、HF ❤3.8k）。[MASK] 位置の 1 logit を選択肢ごとに読む Jev 級。100+ 言語、context 1024。PC ブラウザ向け"
     }
   ]
 }

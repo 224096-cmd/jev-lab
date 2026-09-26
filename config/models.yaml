@@ -117,7 +117,19 @@ models:
     hf_id: chaoliangUNSW/Jev-Style-0.8B-Decision-v3
     device: auto
     language: multi
-  # Laya（convaiinnovations/laya-typed-decisions 421M / laya-multilingual 322M, Apache-2.0）は独自 API のため未実装。
+  laya_multi_322m:                                # Laya multilingual（mmBERT-base 322M、100+ 言語、Apache-2.0、HF ❤ 3.8k の Laya 系）pip install laya
+    adapter: laya
+    hf_id: convaiinnovations/laya-multilingual
+    language: multi
+    note: "[MASK] 位置の 1 logit を選択肢ごとに読む。context 1024。ブラウザ版は export_laya.py"
+  laya_en_421m:                                   # Laya 英語（ModernBERT-large 421M）
+    adapter: laya
+    hf_id: convaiinnovations/laya
+    language: en
+  laya_typed_decisions:                           # typed-decisions ベンチ特化（acc 0.766、Jev 1.13 の 0.727 を上回る）
+    adapter: laya
+    hf_id: convaiinnovations/laya-typed-decisions
+    language: en
   # open-jev-deberta-v3-large は open_jev_deberta（上）。
 
   # ---- 既存の小型 Jev 級モデルの改良ルート ----------------------------------

@@ -29,7 +29,8 @@ def _ensure_registered():
     from .crossenc_hf import CrossEncHfAdapter
     from .tiny_jev import TinyJevAdapter
     from .jev_style import JevStyleAdapter
-    _REGISTRY.update({"crossenc_hf": CrossEncHfAdapter, "tiny_jev": TinyJevAdapter, "jev_style": JevStyleAdapter})
+    from .laya import LayaAdapter
+    _REGISTRY.update({"crossenc_hf": CrossEncHfAdapter, "tiny_jev": TinyJevAdapter, "jev_style": JevStyleAdapter, "laya": LayaAdapter})
     _REGISTRY.update({
         "jev_ja": JevJaAdapter, "open_jev": OpenJevAdapter, "gliner2": Gliner2Adapter,
         "nli_zeroshot": NliZeroShotAdapter, "llm_verbalized": LlmVerbalizedAdapter,
