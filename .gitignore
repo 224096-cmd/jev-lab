@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .venv/
 docs/models/*/encoder.onnx.fp32
+data/jevbench_ja/*.jsonl
+data/*/train.jsonl
+logs/

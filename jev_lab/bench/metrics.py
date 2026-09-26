@@ -76,8 +76,9 @@ class Aggregator:
         fam = {}
         for k, rs in per_family.items():
             d = {"n": len(rs), "accuracy": sum(r["correct"] for r in rs) / len(rs)}
-            if rs[0]["type"] == "score":
-                d["mae"] = sum(r["mae"] for r in rs) / len(rs)
+            ms = [r["mae"] for r in rs if "mae" in r]
+            if ms:
+                d["mae"] = sum(ms) / len(ms)
             fam[k] = d
         return {
             "n_questions": n,

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JEV Lab — 仕組み</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>.toc a{display:inline-block;margin:2px 8px 2px 0}.f{overflow-x:auto;padding:4px 0}.ex{background:color-mix(in srgb,var(--acc) 6%,transparent);border-radius:8px;padding:8px 12px;margin:8px 0}canvas{max-width:100%}</style>
+</head>
+<body>
+<header><h1>JEV Lab</h1><nav><a href="index.html">概要・結果</a><a href="play.html">情報収集・判断</a><a href="theory.html" class="on">仕組み</a></nav></header>
+<main>
+<div class="card toc"><b>目次</b><br>
+<a href="#s0">0. 何を解く問題か</a><a href="#s1">1. 型付き判断（Jev の形）</a><a href="#s2">2. トークン化と入力列</a><a href="#s3">3. エンコーダ（自己注意）</a><a href="#s4">4. 読み出し（プーリング）</a><a href="#s5">5. 判断ヘッド</a><a href="#s6">6. softmax と温度</a><a href="#s7">7. Score・Noul の読み方</a><a href="#s8">8. 損失：CE と Brier</a><a href="#s9">9. 較正：ECE・温度スケーリング</a><a href="#s10">10. ゼロショット cos との関係</a><a href="#s11">11. 他方式との比較</a><a href="#s12">12. 評価の 5 軸と OOD</a><a href="#s13">13. 量子化と端末実行</a><a href="#s14">14. 情報収集への適用</a><a href="#s15">15. 改良の入口</a>
+</div>
+
+<div class="card" id="s0"><h2>0. 何を解く問題か</h2>
+<p>大量の文章（投稿・報道・公式発表・回答）を<b>決められた観点で素早く、安定して、確率つきで</b>仕分けたい。LLM に「JSON で答えて」と頼む方法は、出力形式が崩れる・同じ入力でも答えが揺れる・遅い・大きい、という問題がある。<b>Jev 級モデル（typed-decision model）</b>は生成をやめ、「状況 + 型付き質問 → 確率分布」だけを 1 回の forward で返す設計で、この問題を解く。</p>
+<div class="ex">例：投稿「【拡散希望】○○小学校が津波で水没！」に対し、<br>種類 ∈ {公的発表, 報道, 目撃, 意見, 無関係}、緊急度 ∈ {0..5}、拡散依頼あり? ∈ {yes,no}、根拠と整合? ∈ {yes,no} を同時に答える。</div></div>
+
+<div class="card" id="s1"><h2>1. 型付き判断（Jev の形）</h2>
+<div class="f" id="f1"></div>
+<p>状況 <em>s</em>（本文＋根拠）と N 個の質問 <em>q<sub>j</sub></em> = (質問文, 選択肢集合 <em>O<sub>j</sub></em>)。出力は各質問について選択肢上の確率分布 <em>p<sub>j</sub></em>（Δ は確率単体）。3 つの型はすべて「1 つの softmax」に帰着する：</p>
+<table><tr><th>型</th><th>選択肢</th><th>読み出し</th><th>用途</th></tr>
+<tr><td>Choice</td><td>任意の K 個（最大 255）</td><td>argmax</td><td>分類・振り分け・意図</td></tr>
+<tr><td>Score</td><td>順序つき段階 ℓ<sub>1</sub>&lt;…&lt;ℓ<sub>K</sub></td><td>期待値 Σ p<sub>k</sub>ℓ<sub>k</sub></td><td>緊急度・感情強度・類似度</td></tr>
+<tr><td>Noul</td><td>{yes, no}</td><td>p(yes)</td><td>該当判定・整合性・要対応</td></tr></table>
+<p>構造化出力エラーは<b>構造的に 0</b>（生成しないため）。1 状況に N 質問を載せても forward は 1 回。</p></div>
+
+<div class="card" id="s2"><h2>2. トークン化と入力列</h2>
+<div class="f" id="f2"></div>
+<p>特殊トークン [STATE] [Q] [OPT] を語彙に追加し、状況・質問文・各選択肢を 1 本の列に並べる。トークナイザは SentencePiece Unigram（語彙 10 万）。語彙に無い文字は UTF-8 の <b>byte fallback</b>（&lt;0x0A&gt; など）に落とす。ブラウザ側（Transformers.js）はこれを実装していないため、本ラボでは JS で再現し、Python と完全一致させた（Play の「仕組み・可視化」で確認できる）。</p>
+<p>各スパン（質問文 j、選択肢 (j,k)）のトークン位置 [s,e) を記録しておく。これが読み出しの鍵。</p></div>
+
+<div class="card" id="s3"><h2>3. エンコーダ（自己注意）</h2>
+<div class="f" id="f3"></div>
+<p>ModernBERT-Ja（30M/70M）は双方向 Transformer。各層で全トークンが互いを参照する（自己注意）ので、選択肢トークンの表現には<b>状況と質問文の情報が混ざる</b>。ここが「選択肢を別々に埋め込んで比較する」方式（bi-encoder）との決定的な違いで、cross-encoder として働く。出力 <em>H</em> ∈ ℝ<sup>L×d</sup>（d=256 for 30m）。</p></div>
+
+<div class="card" id="s4"><h2>4. 読み出し（プーリング）</h2>
+<div class="f" id="f4"></div>
+<p><b>span</b>：質問文トークンの平均 u<sub>j</sub>、選択肢トークンの平均 v<sub>jk</sub>。<b>marker</b>：[OPT] マーカー位置の 1 ベクトル。英語の再現実験（Kotoba typed-decisions）では marker 読み出しは事前学習で意味を持たない新規トークンのため<b>学習が進まず</b>、span が有効だった。本ラボでは同じ forward から両方を計算し、切替で差を見られる。</p></div>
+
+<div class="card" id="s5"><h2>5. 判断ヘッド</h2>
+<div class="f" id="f5"></div>
+<p>入力は [u ; v ; u⊙v]（連結・要素積）。u⊙v は内積の分解で「どの次元が一致しているか」を明示し、小さい MLP でも類似度以上の関係（否定・順序・部分一致）を学べる。パラメータ数 ≈ 3d·512 + 512 ≈ 39 万（30m の場合）。ヘッドだけの学習（<code>--freeze-backbone</code>）は数十秒で終わり教材デモに向く。全体微調整はエンコーダも更新する。</p></div>
+
+<div class="card" id="s6"><h2>6. softmax と温度</h2>
+<div class="f" id="f6"></div>
+<p>T&lt;1 で分布は尖り、T&gt;1 で平らになる。<b>argmax は T で変わらない</b>（順序保存）。変わるのは「確信度」だけ。下のスライダで体感できる。</p>
+<p><input type="range" id="tT" min="0.2" max="3" step="0.05" value="1" style="width:60%"> T = <b id="tTv">1.00</b></p><canvas id="tC" width="600" height="180"></canvas>
+<p class="muted small">z = [1.2, 0.4, −0.3, 0.9] を固定して T を変えたときの softmax。</p></div>
+
+<div class="card" id="s7"><h2>7. Score・Noul の読み方</h2>
+<div class="f" id="f7"></div>
+<p>Score は段階を数値 ℓ<sub>k</sub>（既定 0..K−1）とみなした期待値。argmax でなく期待値を使うので「1.035」のように段階の間に落ちる。段階が未見の言い換え（例「高い→大きい」）に変わると壊れやすいことが英語で報告されており、OOD 評価の対象。Noul は p(yes) を閾値 0.5 で判定するが、閾値は用途で変える（見逃しを減らしたいなら下げる）。</p></div>
+
+<div class="card" id="s8"><h2>8. 損失：CE と Brier</h2>
+<div class="f" id="f8"></div>
+<p>CE（対数損失）は正解確率を上げる力が強いが、過信（確信度＞正解率）を生みやすい。Brier（二乗誤差）は分布全体の形を正解 one-hot に近づけ、較正を助ける。両方の和で学習し、λ は実験パラメータ（<code>--brier</code>）。下図は正解確率 p に対する 2 つの損失。</p><canvas id="lC" width="600" height="200"></canvas></div>
+
+<div class="card" id="s9"><h2>9. 較正：ECE と温度スケーリング</h2>
+<div class="f" id="f9"></div>
+<p>「確信度 80% と言った判断が実際に 80% 当たっているか」を測る。信頼度を 10 等幅ビンに分け、ビンごとの |正解率 − 平均確信度| を件数で重みづけした和が ECE。空ビンは除外し補間しない。温度スケーリングは検証データで NLL を最小にする T を 1 つ選ぶ事後補正で、精度を変えずに ECE を下げる。Play のバッチ評価が較正表と信頼性図を出す。</p></div>
+
+<div class="card" id="s10"><h2>10. ゼロショット cos との関係</h2>
+<div class="f" id="f10"></div>
+<p>ヘッドを使わず cos(u, v) に定数 s を掛けて softmax すると、学習なしの判断器になる（Play の「手法: cos」）。エンコーダは選択肢と状況を同時に読んでいるので、bi-encoder の類似度より情報が多い。学習したヘッドとの差 = 「ヘッドが cos 以上に学んだ関係」。未学習モデルでは cos の方が意味のある答えを出す。</p></div>
+
+<div class="card" id="s11"><h2>11. 他方式との比較（このラボで比較できるもの）</h2>
+<table><tr><th>方式</th><th>仕組み</th><th>確率</th><th>強み</th><th>弱み</th><th>実装</th></tr>
+<tr><td>JEV-JA（本ラボ）</td><td>cross-encoder + 判断ヘッド</td><td>native</td><td>小型・1 forward・較正可・日本語</td><td>要学習データ</td><td>端末内 / PC</td></tr>
+<tr><td>open-jev-deberta（Kotoba）</td><td>同上（DeBERTa-v3-large 435M）</td><td>native</td><td>Jev 形の英語参照実装</td><td>英語のみ・大きい</td><td>PC</td></tr>
+<tr><td>GLiNER2.5-Decide / multi</td><td>スパン抽出器由来の分類ヘッド。ラベル集合を実行時に渡す</td><td>ラベルごとのスコア（分布ではない）</td><td>ゼロショットで実用精度、多言語版あり</td><td>正規化の選択が較正を左右</td><td>PC</td></tr>
+<tr><td>NLI ゼロショット（mDeBERTa-xnli）</td><td>選択肢を仮説文にして含意確率</td><td>native</td><td>学習不要・多言語</td><td>選択肢数だけ forward・遅い</td><td>PC</td></tr>
+<tr><td>LLM verbalized（Qwen3）</td><td>確率を JSON で書かせる</td><td>verbalized</td><td>柔軟・説明可</td><td>遅い・揺れる・形式崩れ・大きい</td><td>PC</td></tr></table>
+<p>JevBench の流儀に従い、native と verbalized は別物として扱い、較正の主張を混ぜない。</p></div>
+
+<div class="card" id="s12"><h2>12. 評価の 5 軸と OOD</h2>
+<p>Smart（精度・MAE）／Cheap（サイズ・単価）／Fast（p50/p95）／Reliable（Brier・ECE・有効回答率・言い換え一貫性）／Open（重み・コード）。<b>合成スコアは作らない</b>（トレードオフを見せるのが目的）。</p>
+<p><b>OOD 分割</b>：test と同じ state に、未見の質問文（言い換え）や否定形（gold 反転）を付けたもの。in-domain で高く OOD で低いなら「質問を読まずに slot を暗記した」。Play の検証タブ②③はこれを 1 件で試す簡易版。</p></div>
+
+<div class="card" id="s13"><h2>13. 量子化と端末実行</h2>
+<div class="f" id="f13"></div>
+<p>エンコーダの重みを int8 に動的量子化（155 MB → 37 MB）。行列積は int8、それ以外は fp32。隠れ状態の cos 類似は fp32 比 0.993。判断（argmax）がどれだけ変わるかは実験項目（fp32 版と比較）。ブラウザでは ONNX Runtime Web（WASM、対応端末は WebGPU）で実行し、モデルは IndexedDB に保存して機内モードでも動く。</p></div>
+
+<div class="card" id="s14"><h2>14. 情報収集への適用（このラボのメイン）</h2>
+<p>「調べたいこと」→ 公開 API（気象庁・Wikipedia・Wikidata・OSM・Bluesky・GDELT）から収集 → 各情報に型付き質問（関連・種類・緊急度・具体性・拡散依頼・根拠との整合）→ <b>説明できる信頼性スコア</b> = Σ w<sub>k</sub> f<sub>k</sub> / Σ w<sub>k</sub>（重みは編集可）→ 類似投稿のクラスタ化（コピペ検出）→ 地理照合（地名→座標→標高）→ 証跡保存 → 人手ラベルで自分のデータセットを育てる。</p>
+<p>JEV が担うのは「判断」だけで、収集・照合・スコア合成はルールと公開データが担う。<b>LLM は使わない</b>（使うなら比較対象として）。これが「小さく・速く・説明できる・オフラインで動く」情報整理の設計。</p></div>
+
+<div class="card" id="s15"><h2>15. 改良の入口</h2>
+<table><tr><th>狙い</th><th>変える場所</th><th>見る指標</th></tr>
+<tr><td>較正を良くする</td><td>λ（--brier）、温度推定、ラベルスムージング</td><td>ECE・Brier（精度は不変か）</td></tr>
+<tr><td>質問を読ませる（OOD）</td><td>--augment（言い換え・否定・順序）、質問文の多様化</td><td>OOD 精度・否定形の反転率</td></tr>
+<tr><td>精度</td><td>バックボーン（30m→70m→mDeBERTa-base）、エポック、学習率</td><td>精度 vs サイズ・ms</td></tr>
+<tr><td>ヘッドの形</td><td>DecisionHead（双線形、注意プーリング、選択肢間の相互作用）</td><td>精度・パラメータ数</td></tr>
+<tr><td>既存 Jev モデルの改良</td><td>GLiNER2.5-multi を JevBench-JA で追加学習、open-jev のヘッドを日本語エンコーダに載せ替え</td><td>同じ 5 軸で比較</td></tr>
+<tr><td>端末での速度</td><td>int8/int4、max_length、質問数のバッチ化、WebGPU</td><td>p50/p95、argmax 一致率</td></tr>
+<tr><td>情報収集の質</td><td>情報源の追加（RSS・自治体）、信頼性の重み、クラスタ閾値、地理照合の粒度</td><td>人手ラベルとの一致、新着検出率</td></tr></table></div>
+</main>
+<script>
+const K=(el,tex)=>katex.render(tex,document.querySelector(el),{displayMode:true,throwOnError:false});
+K('#f1',String.raw`s \;+\; \{\,q_j=(\text{instr}_j,\,O_j)\,\}_{j=1}^{N} \;\xrightarrow{\;\text{1 forward}\;}\; \{\,p_j \in \Delta^{|O_j|-1}\,\}_{j=1}^{N}`);
+K('#f2',String.raw`x=[\mathrm{CLS}]\,[\mathrm{STATE}]\,s\,[\mathrm{Q}]\,\text{instr}_1\,[\mathrm{OPT}]\,o_{11}\,[\mathrm{OPT}]\,o_{12}\cdots[\mathrm{Q}]\,\text{instr}_2\cdots[\mathrm{SEP}]\in\mathcal{V}^{L}`);
+K('#f3',String.raw`\mathrm{Attn}(Q,K,V)=\mathrm{softmax}\!\Big(\frac{QK^{\top}}{\sqrt{d_h}}\Big)V,\qquad H=\mathrm{Enc}(x)\in\mathbb{R}^{L\times d}`);
+K('#f4',String.raw`u_j=\frac{1}{|S_j|}\sum_{t\in S_j}H_t,\qquad v_{jk}=\frac{1}{|S_{jk}|}\sum_{t\in S_{jk}}H_t\quad(\text{span})\qquad\text{or}\qquad v_{jk}=H_{m_{jk}}\quad(\text{marker})`);
+K('#f5',String.raw`z_{jk}=w^{\top}\tanh\!\big(W\,[\,u_j;\;v_{jk};\;u_j\odot v_{jk}\,]+b\big)+c,\qquad W\in\mathbb{R}^{512\times 3d}`);
+K('#f6',String.raw`p_{jk}=\frac{\exp(z_{jk}/T)}{\sum_{k'}\exp(z_{jk'}/T)},\qquad \arg\max_k p_{jk}=\arg\max_k z_{jk}\;\;\forall T>0`);
+K('#f7',String.raw`\mathbb{E}[\text{score}_j]=\sum_k p_{jk}\,\ell_k,\qquad \text{noul}_j=\mathbb{1}[p_{j,\text{yes}}\ge\tau]`);
+K('#f8',String.raw`\mathcal{L}=\underbrace{-\log p_{j,y}}_{\text{CE}}\;+\;\lambda\underbrace{\sum_k\big(p_{jk}-\mathbb{1}[k=y]\big)^2}_{\text{Brier}}`);
+K('#f9',String.raw`\mathrm{ECE}=\sum_{b=1}^{10}\frac{|B_b|}{n}\,\big|\mathrm{acc}(B_b)-\mathrm{conf}(B_b)\big|,\qquad T^{*}=\arg\min_T\sum_i -\log\mathrm{softmax}(z_i/T)_{y_i}`);
+K('#f10',String.raw`z^{\cos}_{jk}=s\cdot\frac{u_j\cdot v_{jk}}{\|u_j\|\,\|v_{jk}\|},\qquad s\approx 20`);
+K('#f13',String.raw`\hat W=\mathrm{round}(W/\Delta),\quad \Delta=\frac{\max|W|}{127},\qquad y\approx\Delta\,(\hat W x)`);
+// temperature demo
+const z=[1.2,0.4,-0.3,0.9], names=["A","B","C","D"];
+function sm(z,T){const m=Math.max(...z);const e=z.map(x=>Math.exp((x-m)/T));const s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s)}
+function drawT(){const T=+document.querySelector('#tT').value;document.querySelector('#tTv').textContent=T.toFixed(2);const c=document.querySelector('#tC'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);const p=sm(z,T);const dark=matchMedia('(prefers-color-scheme:dark)').matches;g.fillStyle=dark?'#e6e8eb':'#1a1d21';g.font='13px system-ui';p.forEach((v,i)=>{const x=40+i*140;g.fillStyle='#0b6e99';g.fillRect(x,160-v*140,80,v*140);g.fillStyle=dark?'#e6e8eb':'#1a1d21';g.fillText(`${names[i]} z=${z[i]}`,x,175);g.fillText((v*100).toFixed(1)+'%',x,152-v*140)})}
+document.querySelector('#tT').oninput=drawT;drawT();
+// loss curves
+(()=>{const c=document.querySelector('#lC'),g=c.getContext('2d');const dark=matchMedia('(prefers-color-scheme:dark)').matches;const W=c.width,H=c.height,P=30;g.strokeStyle=dark?'#9aa3ad':'#6b7280';g.beginPath();g.moveTo(P,H-P);g.lineTo(W-P,H-P);g.lineTo(W-P,P);g.stroke();g.font='12px system-ui';g.fillStyle=dark?'#e6e8eb':'#1a1d21';g.fillText('正解確率 p →',W/2-30,H-8);
+const plot=(f,col)=>{g.strokeStyle=col;g.lineWidth=2;g.beginPath();for(let i=1;i<=200;i++){const p=i/200,y=Math.min(4,f(p));const X=P+p*(W-2*P),Y=H-P-y/4*(H-2*P);i===1?g.moveTo(X,Y):g.lineTo(X,Y)}g.stroke()};
+plot(p=>-Math.log(p),'#b45309');plot(p=>(1-p)**2+ (1-p)**2/3,'#0b6e99');g.fillStyle='#b45309';g.fillText('CE = −log p',P+10,P+12);g.fillStyle='#0b6e99';g.fillText('Brier（4 択で他が均等の場合）',P+10,P+28)})();
+</script>
+</body></html>

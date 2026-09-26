@@ -5,51 +5,53 @@
 <title>JEV Lab</title>
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b6e99">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>.hero{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.hero{grid-template-columns:1fr}}.big{font-size:22px;font-weight:700}.lb td:nth-child(n+3){text-align:right}</style>
 </head>
 <body>
-<header><h1>JEV Lab</h1>
-<nav><a href="index.html" class="on">解説・結果</a><a href="play.html">Play（端末内推論）</a></nav></header>
+<header><h1>JEV Lab</h1><nav><a href="index.html" class="on">概要・結果</a><a href="play.html">情報収集・判断</a><a href="theory.html">仕組み</a></nav></header>
 <main>
-<div class="card">
-<p>Jev 級（型付き判断）モデルを日本語で構築・比較する研究環境。学習と大型モデルとの比較は PC（VS Code）で行い、結果とスマホで動く JEV-JA をこのページで公開する。</p>
-<p class="muted small">本ページは研究・教材用のプロトタイプ。防災の判断は必ず自治体の発令情報を優先すること。</p>
+<div class="card hero">
+<div><p class="big">小さな判断モデル（Jev 級）で、公開情報を集めて・仕分けて・根拠と照らす。</p>
+<p>生成しない。1 回の forward で「関連・種類・緊急度・具体性・拡散依頼・根拠との整合」を確率つきで返す 30〜70M パラメータのモデルを日本語で構築し、スマホのブラウザ内（オフライン可）で動かす。収集は公開 API のみ、判断は説明できる形で、証跡を残す。</p>
+<p><a href="play.html"><button class="primary">情報収集・判断を開く</button></a> <a href="theory.html"><button>仕組みを読む</button></a></p></div>
+<div><table><tr><th>できること</th><th>どこで</th></tr>
+<tr><td>調べたいことを入れて公開情報を収集 → JEV で整理・照合 → 信頼性スコア → 証跡保存</td><td>Play「情報収集」</td></tr>
+<tr><td>Choice / Score / Noul の質問を自由に作って判断、温度・読み出し・手法を切替</td><td>Play「判断 Playground」</td></tr>
+<tr><td>根拠あり/なし・順序・否定形・選択肢除去・モデル×手法マトリクス・時間計測</td><td>Play「検証」</td></tr>
+<tr><td>入力列・ベクトル・logit・PCA を可視化、数式つき解説</td><td>Play「仕組み・可視化」／仕組みページ</td></tr>
+<tr><td>10 family の JevBench-JA や自分の JSONL を端末内で評価、実験ノートに記録、CSV 出力</td><td>Play「バッチ評価」「実験ノート」</td></tr>
+<tr><td>学習・ONNX 化・大型モデル比較（GLiNER2 / open-jev / NLI / LLM）</td><td>PC（VS Code）</td></tr></table></div>
 </div>
 
 <div class="card">
-<h2>ベンチ結果（PC で実行 → results/ に保存）</h2>
-<label>結果ファイル</label><select id="res"></select>
-<div id="res-out" class="muted">results/index.json がありません（<code>python -m jev_lab.bench.run ... --publish</code> で生成）</div>
+<h2>リーダーボード（PC の結果 docs/results/ を統合）</h2>
+<p class="muted small">JevBench 流に 5 軸を並べ、合成スコアは作らない。native = モデル自身の分布、verbalized = LLM が書いた分布。端末での結果は Play の実験ノートから CSV で出す。</p>
+<div id="lb" class="muted">docs/results/index.json がありません（PC で <code>python -m jev_lab.bench.run ... --publish</code>）</div>
 </div>
 
 <div class="card">
-<h2>1. Jev 級モデルの形</h2>
-<p>1 つの状況 <em>s</em> に N 個の型付き質問を載せ、<strong>1 回の forward</strong> で質問ごとの較正済み確率分布を返す。生成しないので構造化出力エラーは構造的に 0。</p>
-<div class="formula" id="f1"></div>
-<ul><li><b>Choice</b>: options 上の分布 → argmax</li><li><b>Score</b>: 順序段階上の分布 → 期待値（段階の間に落ちることがある）</li><li><b>Noul</b>: {yes, no} 上の分布 → p(yes)</li></ul>
-<h2>2. JEV-JA の読み出しヘッド</h2>
-<div class="formula" id="f2"></div>
-<p>option の<strong>テキストトークンの平均</strong>を読む（span pool）。新設マーカートークンの hidden state を読む方式（marker pool）は事前学習の構造を持たないため学習しにくいことが英語で報告されている。<code>config/models.yaml</code> の <code>pool</code> を切り替えて日本語で再検証する。</p>
-<h2>3. 損失と較正</h2>
-<div class="formula" id="f3"></div>
-<p>温度 <em>T</em> は検証データで NLL 最小化により事後推定。指標は精度・Brier・ECE（top-label 信頼度を 10 等幅ビンで集計。空ビンは除外し補間しない）。</p>
-<h2>4. native と verbalized</h2>
-<p><span class="tag">native</span> モデル自身の分布（エンコーダ系・JEV-JA）。<span class="tag">verbalized</span> LLM に確率を<em>書かせた</em>もの。別物として扱い、較正の主張を混ぜない。</p>
-<h2>5. 端末内実行</h2>
-<p>JEV-JA はエンコーダを ONNX（int8 動的量子化）に、ヘッドを ONNX に書き出し、ブラウザの ONNX Runtime Web（WASM、対応端末では WebGPU）で実行する。トークナイズは Transformers.js が同梱の tokenizer.json を読む。Python 側と同じ手順（[CLS][STATE] s [Q] instr [OPT] o …）で入力列を作り、スパン平均を JS で計算する。</p>
+<h2>データセット（JevBench-JA v0）</h2>
+<table><tr><th>family</th><th>元データ</th><th>型</th><th>用途</th></tr>
+<tr><td>livedoor_topic</td><td>livedoor ニュース（JMTEB）</td><td>Choice 9</td><td>話題分類</td></tr>
+<tr><td>jnli / claim_check_ja</td><td>JGLUE JNLI</td><td>Choice 3 + Noul</td><td>根拠×主張の整合（事実検証）</td></tr>
+<tr><td>jsts</td><td>JGLUE JSTS</td><td>Score 6</td><td>類似度（重複検出）</td></tr>
+<tr><td>jcqa</td><td>JGLUE JCommonsenseQA</td><td>Choice 5（行ごとに選択肢）</td><td>常識推論</td></tr>
+<tr><td>wrime_sentiment</td><td>WRIME v2</td><td>Score 5 + Noul</td><td>SNS の感情</td></tr>
+<tr><td>jcola</td><td>JCoLA</td><td>Noul</td><td>文の自然さ（bot・機械生成の手がかり）</td></tr>
+<tr><td>fever_en</td><td>FEVER（gold evidence）</td><td>Choice 3 + Noul</td><td>事実検証（英語、既存 Jev モデル比較用）</td></tr>
+<tr><td>tweet_sentiment_en</td><td>TweetEval</td><td>Score 3</td><td>SNS 感情（英語）</td></tr>
+<tr><td>fast_decisions_en:*</td><td>fastino/fast-decisions（8 ドメイン）</td><td>Choice/Noul 複数</td><td>GLiNER2.5-Decide の公式ベンチと同条件</td></tr>
+<tr><td>osint_ja（育成中）</td><td>Play で収集し人手ラベル</td><td>Choice + Score</td><td>本ラボ独自の情報収集データ</td></tr></table>
+<p class="muted small">各 family は in-domain（train/val/test）と OOD（未見の質問文・否定形）を持つ。ライセンスは <code>config/datasets.yaml</code> に記載。</p>
 </div>
 </main>
 <script>
-const K=(el,tex)=>katex.render(tex,document.querySelector(el),{displayMode:true,throwOnError:false});
-K('#f1',String.raw`s \;+\; \{\,q_j=(\text{instr}_j,\,O_j)\,\}_{j=1}^{N} \;\longrightarrow\; \{\,p_j \in \Delta^{|O_j|-1}\,\}_{j=1}^{N}\quad(\text{1 forward})`);
-K('#f2',String.raw`H=\mathrm{Enc}(\ldots),\quad u_j=\overline{H_{\text{instr}_j}},\; v_{jk}=\overline{H_{o_{jk}}},\quad z_{jk}=w^{\top}\tanh(W[u_j;v_{jk};u_j\odot v_{jk}]),\quad p_{jk}=\frac{e^{z_{jk}/T}}{\sum_{k'}e^{z_{jk'}/T}}`);
-K('#f3',String.raw`\mathcal{L}=-\log p_{j,y}\;+\;\lambda\sum_k\big(p_{jk}-\mathbb{1}[k=y]\big)^2,\qquad \mathrm{ECE}=\sum_b \frac{|B_b|}{n}\,\big|\mathrm{acc}(B_b)-\mathrm{conf}(B_b)\big|`);
-(async()=>{try{const idx=await (await fetch('results/index.json')).json();const sel=document.querySelector('#res');idx.files.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;sel.appendChild(o)});
-const show=async()=>{const d=await (await fetch('results/'+sel.value)).json();let h=`<p class="muted small">data: ${d.data}</p><table><tr><th>モデル</th><th>種別</th><th>精度</th><th>Brier</th><th>ECE</th><th>p50 ms</th><th>p95 ms</th><th>invalid</th><th>ctx</th></tr>`;
-for(const r of d.results)h+=`<tr><td>${r.model}</td><td><span class="tag">${r.probability_kind}</span></td><td>${(r.accuracy*100).toFixed(1)}%</td><td>${r.brier?.toFixed(3)}</td><td>${r.ece?.toFixed(3)}</td><td>${r.latency_p50_ms?.toFixed(0)}</td><td>${r.latency_p95_ms?.toFixed(0)}</td><td>${(r.invalid_rate*100).toFixed(0)}%</td><td>${r.use_context?'あり':'なし'}</td></tr>`;
-h+='</table>';for(const r of d.results){h+=`<details><summary>${r.model} — family 別 / 較正ビン</summary><table><tr><th>family</th><th>n</th><th>精度</th><th>MAE</th></tr>`;for(const[k,v]of Object.entries(r.per_family||{}))h+=`<tr><td>${k}</td><td>${v.n}</td><td>${(v.accuracy*100).toFixed(1)}%</td><td>${v.mae?.toFixed(2)??''}</td></tr>`;h+='</table><table><tr><th>bin</th><th>n</th><th>conf</th><th>acc</th></tr>';for(const b of r.ece_table||[])if(b.n)h+=`<tr><td>${b.bin}</td><td>${b.n}</td><td>${b.confidence.toFixed(2)}</td><td>${b.accuracy.toFixed(2)}</td></tr>`;h+='</table></details>'}
-document.querySelector('#res-out').innerHTML=h};sel.onchange=show;if(idx.files.length){sel.value=idx.files[0];show()}}catch(e){}})();
+(async()=>{try{const idx=await (await fetch('results/index.json')).json();const rows=[];for(const f of idx.files){try{const d=await (await fetch('results/'+f)).json();for(const r of d.results)rows.push({file:f,data:d.data,...r})}catch{}}
+if(!rows.length)return;rows.sort((a,b)=>(b.accuracy||0)-(a.accuracy||0));
+let h='<table class="lb"><tr><th>モデル（設定）</th><th>確率</th><th>精度</th><th>Brier</th><th>ECE</th><th>p50 ms</th><th>p95 ms</th><th>n</th><th>ctx</th><th>データ</th></tr>';
+for(const r of rows)h+=`<tr><td>${r.model}</td><td><span class="tag">${r.probability_kind}</span></td><td>${(r.accuracy*100).toFixed(1)}%</td><td>${r.brier?.toFixed(3)??''}</td><td>${r.ece?.toFixed(3)??''}</td><td>${r.latency_p50_ms?.toFixed(0)??''}</td><td>${r.latency_p95_ms?.toFixed(0)??''}</td><td>${r.n_questions??''}</td><td>${r.use_context===false?'なし':'あり'}</td><td class="small">${(r.data||'').split('/').pop()}</td></tr>`;
+h+='</table>';for(const r of rows){h+=`<details><summary>${r.model} — family 別</summary><table><tr><th>family</th><th>n</th><th>精度</th><th>MAE</th></tr>${Object.entries(r.per_family||{}).map(([k,v])=>`<tr><td>${k}</td><td>${v.n}</td><td>${(v.accuracy*100).toFixed(1)}%</td><td>${v.mae?.toFixed(2)??''}</td></tr>`).join('')}</table></details>`}
+document.querySelector('#lb').innerHTML=h}catch(e){}})();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
 </body></html>

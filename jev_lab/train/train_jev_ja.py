@@ -128,6 +128,8 @@ def main():
     ap.add_argument("--max-length", type=int, default=1024)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--freeze-backbone", action="store_true", help="ヘッドのみ学習（超軽量・教材用）")
+    ap.add_argument("--max-train", type=int, default=0, help="学習 state 数の上限（0=全部）。CPU で時間を区切る用")
+    ap.add_argument("--max-val", type=int, default=0)
     a = ap.parse_args()
 
     torch.manual_seed(a.seed)
@@ -143,8 +145,10 @@ def main():
     opt = torch.optim.AdamW(params, weight_decay=0.01)
     scaler = torch.cuda.amp.GradScaler(enabled=(dev == "cuda"))
 
-    train = list(load_jsonl(a.train))
-    val = list(load_jsonl(a.val))
+    train = list(load_jsonl(a.train)); rng.shuffle(train)
+    val = list(load_jsonl(a.val)); rng.shuffle(val)
+    if a.max_train: train = train[: a.max_train]
+    if a.max_val: val = val[: a.max_val]
     log = {"args": vars(a), "loss": [], "val": []}
     step = 0
     for ep in range(a.epochs):
@@ -168,9 +172,11 @@ def main():
                 scaler.step(opt); scaler.update(); opt.zero_grad(); step += 1
                 if step % 20 == 0:
                     print(f"ep{ep} step{step} loss={run / a.grad_accum / 20:.4f}"); log["loss"].append(run / a.grad_accum / 20); run = 0.0
+        model.save(a.out); print("checkpoint saved →", a.out)
         s = evaluate(model, val)
         print(f"== epoch {ep} val acc={s['accuracy']:.3f} brier={s['brier']:.3f} ece={s['ece']:.3f}")
         log["val"].append(s)
+        json.dump(log, open(os.path.join(a.out, "report.json"), "w"), ensure_ascii=False, indent=2)
 
     T = fit_temperature(model, val)
     model.temperature = T

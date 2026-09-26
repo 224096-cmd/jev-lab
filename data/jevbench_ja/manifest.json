@@ -1,0 +1,82 @@
+{
+  "livedoor_topic": {
+    "desc": "ニュース記事（本文冒頭）のカテゴリ 9 択",
+    "license": "CC BY-ND 2.1 JP（ロンウイット）／再配布せず HF から取得",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "jnli": {
+    "desc": "前提と仮説の含意関係（3 択）＋ Noul",
+    "license": "CC BY-SA 4.0（JGLUE, Yahoo Japan）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "jsts": {
+    "desc": "2 文の意味的類似度（0〜5 → 6 段階 Score）",
+    "license": "CC BY-SA 4.0（JGLUE）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "jcqa": {
+    "desc": "常識推論の 5 択（文脈なし）",
+    "license": "CC BY-SA 4.0（JGLUE）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "wrime_sentiment": {
+    "desc": "SNS 投稿の感情極性（書き手評価 -2〜2 → 5 段階 Score）",
+    "license": "研究目的（WRIME, 東北大・ids-cv）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "jcola": {
+    "desc": "日本語文の文法的容認性（Noul）",
+    "license": "CC BY-SA 4.0（JCoLA）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "claim_check_ja": {
+    "desc": "根拠文に照らして主張が支持されるか（JNLI を OSINT の「根拠×主張」形式に組み替え）",
+    "license": "CC BY-SA 4.0（JGLUE）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "fever_en": {
+    "desc": "事実検証（英語）。Wikipedia の根拠文と主張 → 支持/否定/情報不足。open-jev・GLiNER2 等の英語 Jev モデル比較用",
+    "license": "CC BY-SA 3.0（FEVER）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "tweet_sentiment_en": {
+    "desc": "SNS 投稿の感情（英語、3 段階 Score）",
+    "license": "TweetEval（研究利用）",
+    "train": 1200,
+    "val": 150,
+    "test": 300,
+    "ood": 300
+  },
+  "fast_decisions_en": {
+    "desc": "GLiNER2.5-Decide の公式ベンチ（英語、17 ドメイン、1 入力に複数タスク）。既存 Jev 級モデルとの直接比較用",
+    "license": "Apache 2.0（fastino/fast-decisions）",
+    "train": 480,
+    "val": 80,
+    "test": 240,
+    "ood": 0
+  }
+}

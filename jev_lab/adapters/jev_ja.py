@@ -137,8 +137,26 @@ class JevJaAdapter(BaseAdapter):
 
     @torch.no_grad()
     def distributions(self, state, questions):
+        if self.cfg.get("method", "head") == "cos":
+            return self._cos_distributions(state, questions)
         logits = self.model.forward_logits(state, questions)
         return [torch.softmax(z / self.model.temperature, -1).cpu().tolist() for z in logits]
+
+    @torch.no_grad()
+    def _cos_distributions(self, state, questions):
+        """ゼロショット: z = scale * cos(u, v)。ヘッドを使わない（Play の method=cos と同じ）。"""
+        m = self.model
+        ids, spans, marker = m.encode_example(state, questions)
+        H = m.enc(input_ids=ids.unsqueeze(0).to(self.device)).last_hidden_state[0]
+        vec = {tag: H[s:e].mean(0) for tag, s, e in spans}
+        scale = float(self.cfg.get("cos_scale", 20.0))
+        out = []
+        for j, q in enumerate(questions):
+            u = vec[f"q{j}"]
+            V = torch.stack([vec[f"o{j}_{k}"] for k in range(len(options_of(q)))])
+            z = scale * torch.nn.functional.cosine_similarity(u.unsqueeze(0), V, dim=-1)
+            out.append(torch.softmax(z, -1).cpu().tolist())
+        return out
 
     def info(self) -> dict[str, Any]:
         d = super().info()

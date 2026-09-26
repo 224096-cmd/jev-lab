@@ -2,83 +2,169 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JEV Lab — Play</title>
+<title>JEV Lab — 情報収集・判断</title>
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b6e99">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+.tokstrip{line-height:2;font-size:13px;word-break:break-all}.tk{display:inline-block;padding:0 4px;margin:1px;border-radius:4px;border:1px solid var(--line)}
+.tk.state{background:color-mix(in srgb,var(--acc) 12%,transparent)}.tk[class*=instr]{background:color-mix(in srgb,#b45309 18%,transparent)}.tk[class*=opt]{background:color-mix(in srgb,#15803d 18%,transparent)}
+.tk.cls,.tk.sep,.tk.q,.tk.opt{font-weight:700;border-color:var(--acc)}
+.qcard{border:1px dashed var(--line);border-radius:10px;padding:10px;margin:8px 0}.qcard .hd{display:flex;gap:8px;align-items:center}.qcard .hd select{width:auto}.qcard .hd input{flex:1}
+canvas{max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--line);font-size:12px;margin:2px}
+input[type=range]{width:100%}.note{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
+details summary{cursor:pointer;color:var(--acc)}
+</style>
 </head>
 <body>
 <header><h1>JEV Lab</h1>
-<nav><a href="index.html">解説・結果</a><a href="play.html" class="on">Play（端末内推論）</a></nav>
+<nav><a href="index.html">解説・結果</a><a href="play.html" class="on">Play</a></nav>
 <span class="muted" id="status"></span></header>
 <main>
+
 <div class="card">
  <div class="grid3">
   <div><label>モデル</label><select id="model"></select></div>
   <div><label>状態</label><div id="minfo" class="muted">未ロード</div></div>
   <div><label>&nbsp;</label><button class="primary" id="load">モデルを読み込む</button></div>
  </div>
+ <p class="small" id="offline"></p>
  <p class="muted small" id="storage"></p>
 </div>
 
-<div class="tabs"><button data-t="play" class="on">Playground</button><button data-t="triage">情報トリアージ</button></div>
+<div class="tabs">
+ <button data-t="osint" class="on">情報収集（メイン）</button><button data-t="play">判断 Playground</button><button data-t="verify">検証</button><button data-t="viz">仕組み・可視化</button>
+ <button data-t="batch">バッチ評価</button><button data-t="notes">実験ノート</button><button data-t="tmpl">用途テンプレ</button><button data-t="settings">保存・設定</button>
+</div>
 
-<section id="t-play">
+<!-- ============ Playground ============ -->
+<section id="t-play" class="hidden">
 <div class="row"><div class="card">
-<label>state（状況）</label><textarea id="p-state">津市栗真町屋町の自宅2階にいます。窓から見ると道路が30cmくらい冠水し、雨はまだ強いです。足首を捻挫していて走れません。</textarea>
-<label>context（根拠。1 行 1 件、空なら無し）</label><textarea id="p-ctx">栗真町屋町周辺は志登茂川の洪水浸水想定区域（想定最大 0.5〜3.0m）
-最寄りの指定避難所: 栗真小学校（洪水対応◯、標高 4m、徒歩 12 分）</textarea>
-<label>questions（JSON）</label><textarea id="p-q" style="min-height:190px">[
- {"type":"choice","id":"hazard","instructions":"この状況で主に起きている災害は何か","options":["洪水・内水氾濫","津波","土砂災害","地震の建物被害","不明"]},
- {"type":"score","id":"urgency","instructions":"今すぐ移動を始める必要性","levels":["低い","やや低い","中程度","高い","非常に高い"]},
- {"type":"noul","id":"vertical","instructions":"屋外への水平避難より、その場で上階にとどまる垂直避難が適切か"}
-]</textarea>
-<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-save">結果を JSON で保存</button></p>
-</div><div class="card" id="p-out"><span class="muted">モデルを読み込んでから「判断する」</span></div></div>
+<label>用途テンプレ</label><select id="p-tmpl"></select>
+<label>state（状況・本文）</label><textarea id="p-state"></textarea>
+<label>context（根拠。1 行 1 件、空なら無し）</label><textarea id="p-ctx" style="min-height:60px"></textarea>
+<label>questions <span class="muted">（＋で追加。型は Choice / Score / Noul）</span></label>
+<div id="qb"></div>
+<p><button id="q-add-choice">＋ Choice（多択）</button> <button id="q-add-score">＋ Score（順序段階）</button> <button id="q-add-noul">＋ Noul（yes/no）</button></p>
+<details><summary>JSON で直接編集</summary><textarea id="p-q" style="min-height:160px;font-family:monospace;font-size:12px"></textarea><p><button id="q-apply">JSON を反映</button></p></details>
+<p><button class="primary" id="p-run" disabled>判断する</button> <button id="p-note">実験ノートに保存</button> <button id="p-save">結果を JSON で保存</button></p>
+</div>
+<div class="card">
+<div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b> <span class="muted small">（低い＝尖る、高い＝平ら。再推論なしで反映）</span></span>
+<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span（選択肢トークン平均）</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker（[OPT] 位置）</label></span>
+<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（学習した判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos（ゼロショット：cos(u,v)×<input id="cosScale" value="20" style="width:52px;display:inline">）</label></span></div>
+<p class="muted small">head と cos を切り替えると「学習したヘッドが埋め込みの類似度以上の何を学んだか」が分かる。未学習モデルでは cos の方が意味のある答えを出す。</p>
+<div id="p-out"><span class="muted">モデルを読み込んでから「判断する」</span></div>
+</div></div>
 </section>
 
-<section id="t-triage" class="hidden">
+<!-- ============ 検証 ============ -->
+<section id="t-verify" class="hidden">
+<div class="card"><p class="muted small">Playground の入力を使い、「何を変えると出力がどう変わるか」を測る。研究・教材の両方で使う。</p>
+<div class="row">
+ <div><h2>① 根拠（context）あり／なし</h2><p class="muted small">RAG で根拠を注入する効果。分布がどれだけ動くか（L1 距離）を出す。</p><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
+ <div><h2>② 選択肢の順序をシャッフル</h2><p class="muted small">順序に依存せず同じ答えを返すか（一貫性）。N 回並べ替えて argmax の一致率を出す。</p><input id="v-n" value="8" style="width:80px"> 回 <button id="v-shuf">実行</button><div id="v-shuf-out"></div></div>
+ <div><h2>③ Noul の否定形</h2><p class="muted small">質問を否定形にしたとき p(yes) が反転するか。反転しなければ「質問を読まずに答えている」。</p><button id="v-neg">実行</button><div id="v-neg-out"></div></div>
+ <div><h2>④ 選択肢を 1 つ抜く（distractor drop）</h2><p class="muted small">各選択肢を順に抜いたとき、残りの分布がどう変わるか（選択肢間の依存）。</p><button id="v-drop">実行</button><div id="v-drop-out"></div></div>
+ <div><h2>⑤ モデル × 手法 × 読み出し のマトリクス</h2><p class="muted small">選んだモデル全部を（未保存ならダウンロードして）同じ入力で実行し、head/cos × span/marker の全組合せを表にする。</p><select id="v-models" multiple size="4"></select><p><button id="v-cmp">実行</button> <button id="v-cmp-note">実験ノートに保存</button></p><div id="v-cmp-out"></div></div>
+ <div><h2>⑥ 推論時間の計測</h2><p class="muted small">同じ入力を N 回。p50 / p95 とエンコーダ／ヘッドの内訳。卒論の端末性能表に。</p><input id="v-bn" value="10" style="width:80px"> 回 <button id="v-bench">実行</button><div id="v-bench-out"></div></div>
+</div></div>
+</section>
+
+<!-- ============ 仕組み・可視化 ============ -->
+<section id="t-viz" class="hidden">
 <div class="card">
-<label>テキスト（1 行 1 件）</label><textarea id="t-texts" style="min-height:140px">【拡散希望】津市の美杉小学校が津波で完全に水没しました！生徒が取り残されています！RTお願いします！
-安濃川の橋のあたり、水位がかなり上がってる。近くの人は気をつけて。
-津市役所: 12時00分、津市全域に高齢者等避難（警戒レベル3）を発令しました。</textarea>
-<label>questions（JSON）</label><textarea id="t-q">[
- {"type":"choice","id":"kind","instructions":"投稿の種類","options":["公式発表","現地報告","救助要請","拡散依頼","不明"]},
- {"type":"score","id":"urgency","instructions":"対応の緊急度","levels":["0","1","2","3","4","5"]},
- {"type":"noul","id":"geo_contra","instructions":"内容が地理的に矛盾しているか"}
-]</textarea>
-<label>並び替えキー（question id）</label><input id="t-sort" value="urgency">
-<p><button class="primary" id="t-run" disabled>一括判断</button></p></div>
-<div class="card" id="t-out"></div>
+<h2>0. 全体像</h2>
+<div class="formula" id="f0"></div>
+<p>状況 <em>s</em> と N 個の質問を <b>1 本の列</b>にして一度だけエンコードし、質問ごとに選択肢の確率分布を返す。生成しないので形式エラーが起きない。</p>
+<h2>1. 入力列（直近の判断）</h2>
+<p class="muted small">色: <span class="tk state">state</span> <span class="tk instr0">質問文</span> <span class="tk opt0_0">選択肢</span>、太字は特殊トークン。Python 側と同じ順序で並べる。</p>
+<div id="viz-tokens" class="tokstrip muted">まだ判断していません</div>
+<h2>2. 読み出し：質問ベクトル u と選択肢ベクトル v</h2>
+<div class="formula" id="f1"></div>
+<p>u は質問文トークンの平均、v<sub>k</sub> は選択肢 k のトークン平均（span）。marker は [OPT] 位置の 1 トークンを読む。</p>
+<div id="viz-uv"></div>
+<h2>3. ヘッド → logit → softmax</h2>
+<div class="formula" id="f2"></div>
+<p>ヘッドは小さな MLP（3d → 512 → 1）。入力は [u ; v ; u⊙v]。cos 類似度と logit を並べると「ヘッドが cos 以外の何を見ているか」が分かる。</p>
+<div id="viz-logits"></div>
+<h2>4. ベクトル空間の 2 次元投影（PCA）</h2>
+<p class="muted small">● 質問 u、○ 各選択肢 v。学習が進むと正解の選択肢が u に近づく。</p>
+<canvas id="viz-pca" width="640" height="360"></canvas>
+<h2>5. 損失と較正</h2>
+<div class="formula" id="f3"></div>
+<p>学習時は CE と Brier の和。温度 T は検証データで NLL 最小化により事後推定（この画面のスライダはその手動版）。ECE は top-label 信頼度と正解率の差。</p>
+<h2>6. 処理時間の内訳</h2><div id="viz-time" class="kv"></div>
+<h2>7. 改良の入口（何を変えると何が起きるか）</h2>
+<table><tr><th>変えるもの</th><th>場所</th><th>期待される効果／検証方法</th></tr>
+<tr><td>温度 T</td><td>この画面のスライダ／学習後の自動推定</td><td>較正（ECE）だけが変わり argmax は不変。バッチ評価の較正表で確認</td></tr>
+<tr><td>読み出し span ↔ marker</td><td>ラジオボタン／<code>--pool</code></td><td>英語では marker が学習しない。日本語で再現するか</td></tr>
+<tr><td>Brier の重み λ</td><td><code>--brier</code></td><td>0 にすると CE のみ。較正が悪化するか</td></tr>
+<tr><td>拡張（順序シャッフル・否定形）</td><td><code>--augment p</code></td><td>検証タブ②③の一貫性が上がるか。OOD 精度</td></tr>
+<tr><td>バックボーン 30m → 70m → large</td><td><code>models.yaml</code> の <code>backbone</code></td><td>精度・サイズ・ms のトレードオフ（5 軸）</td></tr>
+<tr><td>根拠の注入（RAG）</td><td>context 欄</td><td>検証タブ①。地理矛盾の検出率</td></tr>
+<tr><td>ヘッドの形（MLP→双線形など）</td><td><code>adapters/jev_ja.py DecisionHead</code></td><td>パラメータ数と精度</td></tr>
+<tr><td>int8 量子化</td><td><code>export_onnx.py --no-int8</code></td><td>fp32 との argmax 一致率、サイズ 155→45 MB</td></tr></table>
+</div>
+</section>
+
+<!-- ============ バッチ評価 ============ -->
+<section id="t-batch" class="hidden">
+<div class="card">
+<p class="muted small">JSONL（1 行 = 1 state、<code>bench/data/*.jsonl</code> と同じ形式）を端末内で評価し、精度・Brier・ECE・p50/p95 を出す。結果 JSON は <code>docs/results/</code> に置く形式と同じ。</p>
+<p><label>公開データ（docs/bench/）</label><select id="b-ds"></select> <button id="b-sample">読み込む</button></p>
+<p><label>または自分の JSONL</label><input type="file" id="b-file" accept=".jsonl,.json,.txt"> <span class="muted" id="b-info"></span></p>
+<p><label>family で絞る（空＝全部）</label><input id="b-family" placeholder="例: jnli, jsts_ood"> <label>最大 state 数（0＝全部）</label><input id="b-limit" value="0" style="width:90px"></p>
+<p><label style="display:inline"><input type="checkbox" id="b-ctx" checked style="width:auto"> context を使う</label> <label>実験名（ノートに記録）</label><input id="b-name" placeholder="例: 30m head span T=1 test"> <button class="primary" id="b-run" disabled>評価する</button> <button id="b-dl">結果 JSON を保存</button> <button id="b-csv">行ごとの CSV を保存</button></p>
+<p class="muted small">評価結果は自動で「実験ノート」に記録される（モデル・手法・pool・T・データ・端末・時刻つき）。</p>
+<div id="b-out"></div>
+<canvas id="b-cal" width="360" height="360" class="hidden"></canvas>
+</div>
+</section>
+
+<!-- ============ 情報収集（OSINT） ============ -->
+<section id="t-osint">
+<div class="card">
+<p class="note small"><b>利用方針</b>：運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。対象は<b>出来事・地域・話題</b>。個人の特定・追跡・プロファイリングには使わない。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。</p>
+<div class="row"><div>
+<label>調べたいこと（出来事・地名・話題）</label><input id="o-q" value="津市 大雨" list="o-saved"><datalist id="o-saved"></datalist>
+<label>情報源</label><div id="o-src"></div>
+<div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語（Bluesky/GDELT）</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
+<p><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名 → 座標 → 標高を根拠に加える）</label> <label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似・重複投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
+</div><div>
+<label>信頼性スコアの重み（合計で正規化。編集して判断がどう変わるか見る）</label>
+<div id="o-w" class="kv"></div>
+<p class="muted small">score = Σ w<sub>k</sub>·f<sub>k</sub> / Σ w<sub>k</sub>。f: 公的発表(0/1)、根拠と整合 p、具体性 p、種類（公的1／報道0.8／目撃0.5／意見0.2／無関係0）、拡散依頼なし 1−p、関連 p。<b>JEV の出力をルールで合成する「説明できるスコア」</b>。</p>
+</div></div>
+<p><button class="primary" id="o-run">1. 収集する</button> <button id="o-judge" disabled>2. JEV で整理・照合</button> <button id="o-pack" disabled>証跡 JSON</button> <button id="o-csv" disabled>CSV</button> <button id="o-note" disabled>実験ノートに保存</button> <button id="o-label" disabled>3. 人手ラベル → 学習データ JSONL</button></p>
+<p class="muted small" id="o-diff"></p>
+<div id="o-out"></div>
+</div>
+</section>
+
+<!-- ============ 実験ノート ============ -->
+<section id="t-notes" class="hidden">
+<div class="card">
+<p class="muted small">この端末で行った実験の記録（IndexedDB）。卒論の表はここから CSV で出す。PC で回した結果（docs/results/）は「解説・結果」ページに統合表示される。</p>
+<p><button id="n-csv">全件 CSV</button> <button id="n-json">全件 JSON（バックアップ）</button> <input type="file" id="n-import" accept=".json" style="width:auto"> <button id="n-clear">全削除</button></p>
+<div id="n-list"></div>
+</div>
+</section>
+
+<!-- ============ 用途テンプレ ============ -->
+<section id="t-tmpl" class="hidden"><div class="card" id="tmpl-list"></div></section>
+
+<!-- ============ 保存・設定 ============ -->
+<section id="t-settings" class="hidden">
+<div class="card">
+<h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
+<p class="note small">モデルは IndexedDB に保存され、通常は消えません。消えるのは：ブラウザのサイトデータ削除、iOS で数週間使わなかった場合、容量不足。「永続化」を許可し、ホーム画面に追加しておくと最も安全です。</p>
+<p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button></p>
+<h2>端末情報</h2><div id="s-env" class="kv"></div>
+</div>
 </section>
 </main>
-<script type="module">
-import { JevJa } from "./jev.js";
-const $ = s => document.querySelector(s); let jev = null; let last = null;
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on')); b.classList.add('on'); ['play','triage'].forEach(t => $('#t-'+t).classList.toggle('hidden', t !== b.dataset.t)); });
-const idx = await (await fetch('models/index.json')).json();
-for (const m of idx.models) { const o = document.createElement('option'); o.value = m.name; o.textContent = `${m.name} — ${m.size_mb} MB ${m.trained ? '(学習済)' : '(未学習)'}`; $('#model').appendChild(o); }
-async function storageInfo(){ try{ const e = await navigator.storage.estimate(); const p = await navigator.storage.persisted?.(); $('#storage').textContent = `ストレージ: 使用 ${(e.usage/1e6).toFixed(0)} MB / 上限 ${(e.quota/1e6).toFixed(0)} MB ・ 永続化 ${p?'済':'未'}`; }catch{} }
-storageInfo();
-$('#load').onclick = async () => {
-  try { await navigator.storage.persist?.(); } catch {}
-  $('#p-run').disabled = $('#t-run').disabled = true; $('#load').disabled = true;
-  try { jev = await new JevJa($('#model').value).load(s => $('#status').textContent = s);
-    $('#minfo').textContent = `${jev.name} / ${jev.backend} / pool=${jev.cfg.pool} / T=${jev.cfg.temperature}`; $('#p-run').disabled = $('#t-run').disabled = false; }
-  catch (e) { $('#minfo').textContent = 'ロード失敗: ' + e.message; }
-  $('#load').disabled = false; storageInfo();
-};
-const ctx = () => $('#p-ctx').value.split('\n').map(s => s.trim()).filter(Boolean);
-function render(res){ let h = `<p><b>${res.model}</b> <span class="tag">${res.probability_kind}</span> <span class="tag">${res.backend}</span> <span class="muted">${res.latency_ms.toFixed(0)} ms / ${res.tokens} tok</span></p>`;
- for (const a of res.answers) { const d = a.distribution; h += `<p><b>${a.id}</b>: `; if (a.type==='choice') h += `<b>${a.choice}</b> (${(a.confidence*100).toFixed(0)}%)`; else if (a.type==='score') h += `期待値 <b>${a.score.toFixed(2)}</b> / 最頻 ${a.level}`; else h += `<b>${a.noul?'yes':'no'}</b> p(yes)=${a.p_yes.toFixed(2)}`; h += '</p><table>';
-  d.labels.forEach((l,i) => h += `<tr><td style="width:32%">${l}</td><td><div class="bar"><i style="width:${d.probabilities[i]*100}%"></i></div></td><td style="width:58px">${(d.probabilities[i]*100).toFixed(1)}%</td></tr>`); h += '</table>'; } return h; }
-$('#p-run').onclick = async () => { $('#status').textContent = '推論中…'; try { last = await jev.decide($('#p-state').value, JSON.parse($('#p-q').value), ctx()); last.input = { state: $('#p-state').value, context: ctx(), questions: JSON.parse($('#p-q').value) }; $('#p-out').innerHTML = render(last); } catch (e) { $('#p-out').textContent = e.message; } $('#status').textContent = ''; };
-$('#p-save').onclick = () => { if (!last) return; const b = new Blob([JSON.stringify(last, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `decide-${Date.now()}.json`; a.click(); };
-$('#t-run').onclick = async () => { $('#status').textContent = '一括判断中…'; const qs = JSON.parse($('#t-q').value); const texts = $('#t-texts').value.split('\n').filter(Boolean); const rows = [];
- for (const t of texts) { const r = await jev.decide(t, qs); rows.push({ text: t, r }); }
- const key = $('#t-sort').value; if (key) rows.sort((x, y) => { const g = r => { const a = r.answers.find(a => a.id === key) || {}; return a.score ?? a.p_yes ?? a.confidence ?? 0; }; return g(y.r) - g(x.r); });
- let h = '<table><tr><th>テキスト</th>' + qs.map(q => `<th>${q.id}</th>`).join('') + '<th>ms</th></tr>';
- for (const { text, r } of rows) { h += `<tr><td>${text}</td>`; for (const a of r.answers) h += '<td>' + (a.type==='choice' ? `${a.choice}<br><span class="muted">${(a.confidence*100).toFixed(0)}%</span>` : a.type==='score' ? a.score.toFixed(2) : `${a.noul?'yes':'no'} (${a.p_yes.toFixed(2)})`) + '</td>'; h += `<td>${r.latency_ms.toFixed(0)}</td></tr>`; }
- $('#t-out').innerHTML = h + '</table>'; $('#status').textContent = ''; };
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-</script>
+<script type="module" src="app.js"></script>
 </body></html>

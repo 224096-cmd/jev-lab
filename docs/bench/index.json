@@ -1,0 +1,47 @@
+{
+ "files": [
+  {
+   "file": "jevbench_ja_small.jsonl",
+   "states": 270,
+   "families": [
+    "claim_check_ja",
+    "claim_check_ja_ood",
+    "fever_en",
+    "fever_en_ood",
+    "jcola",
+    "jcola_ood",
+    "jcqa",
+    "jcqa_ood",
+    "jnli",
+    "jnli_ood",
+    "jsts",
+    "jsts_ood",
+    "livedoor_topic",
+    "livedoor_topic_ood",
+    "tweet_sentiment_en",
+    "tweet_sentiment_en_ood",
+    "wrime_sentiment",
+    "wrime_sentiment_ood"
+   ],
+   "desc": "JevBench-JA 端末用サブセット（10 family × in-domain/OOD × 15 state）"
+  },
+  {
+   "file": "sample_ja.jsonl",
+   "states": 5,
+   "families": [
+    "disaster_triage",
+    "disaster_triage_ood",
+    "sns_verify"
+   ],
+   "desc": "災害トリアージ・SNS 検証の見本 5 件"
+  },
+  {
+   "file": "survey_example.jsonl",
+   "states": 2,
+   "families": [
+    "survey_example"
+   ],
+   "desc": "授業アンケート CSV 取込の例"
+  }
+ ]
+}

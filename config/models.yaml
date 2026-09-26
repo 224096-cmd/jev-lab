@@ -62,6 +62,16 @@ models:
     max_length: 1024
     device: auto
     language: ja
+  jev_ja_30m_cos:                                # ゼロショット基準（同じエンコーダ、ヘッドなし）
+    adapter: jev_ja
+    backbone: sbintuitions/modernbert-ja-30m
+    head_path: checkpoints/jev_ja_30m            # 学習後のエンコーダがあればそれを使う（無ければ素の事前学習）
+    method: cos
+    cos_scale: 20
+    pool: span
+    max_length: 1024
+    device: auto
+    language: ja
   jev_ja_70m:
     adapter: jev_ja
     backbone: sbintuitions/modernbert-ja-70m
@@ -87,3 +97,18 @@ models:
     device: cuda
     language: ja
     note: Kotoba の「DeBERTa-large が最良」を日本語で検証する用。PC/LAN 専用
+
+  # ---- 既存の小型 Jev 級モデルの改良ルート ----------------------------------
+  # (a) 多言語 DeBERTa をバックボーンに JEV-JA ヘッドを載せる（Kotoba の「DeBERTa が最良」を多言語で）
+  jev_ja_mdeberta_base:
+    adapter: jev_ja
+    backbone: microsoft/mdeberta-v3-base       # MIT, 278M, 多言語（日本語・英語の family を同時に学習可）
+    head_path: checkpoints/jev_ja_mdeberta_base
+    pool: span
+    max_length: 512
+    device: cuda
+    language: multi
+    note: RTX 3060 で bf16・grad-accum 16 なら学習可。端末には載せない（PC 比較用）
+  # (b) GLiNER2.5-multi-Decide（287M, Apache）を JevBench-JA で追加学習する場合:
+  #     python -m jev_lab.train.convert_gliner2 → data/gliner2/*.json を作り、gliner2 のトレーナで学習。
+  #     学習後は gliner2_multi の hf_id をローカルパスに変えるだけで同じ IF で比較できる。
