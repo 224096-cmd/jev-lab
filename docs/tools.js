@@ -180,3 +180,14 @@ export const DORK_LIBRARY = [
   { cat: "詐欺・なりすまし確認", name: "同名サイトの重複", q: "intitle:\"{q}\" -site:{d}" }, { cat: "詐欺・なりすまし確認", name: "被害・注意喚起の投稿", q: "\"{q}\" (詐欺 OR 注意 OR 偽 OR なりすまし)" },
 ];
 export const buildFromLibrary = (item, q, d = "") => item.q.replace(/\{q\}/g, q).replace(/\{d\}/g, d || q).replace(/\{week\}/g, new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10));
+
+/* ---------- 検索式コンポーザー：キーワード以外はボタンで選ぶ ---------- */
+export const COMPOSER = {
+  "何を探す": [["PDF 資料", "filetype:pdf"], ["Excel / CSV", "(filetype:xlsx OR filetype:xls OR filetype:csv)"], ["Word", "(filetype:docx OR filetype:doc)"], ["プレゼン", "(filetype:pptx OR filetype:ppt)"], ["画像", "(filetype:jpg OR filetype:png)"], ["動画", "(site:youtube.com OR site:tiktok.com OR site:nicovideo.jp)"], ["ニュース記事", "(site:nhk.or.jp OR site:asahi.com OR site:mainichi.jp OR site:yomiuri.co.jp OR site:nikkei.com OR site:jiji.com)"], ["公的発表", "(site:go.jp OR site:lg.jp)"], ["自治体", "site:lg.jp"], ["官公庁", "site:go.jp"], ["大学・研究", "(site:ac.jp OR site:arxiv.org OR site:jstage.jst.go.jp)"], ["SNS", "(site:x.com OR site:bsky.app OR site:instagram.com OR site:facebook.com)"], ["掲示板・Q&A", "(site:5ch.net OR site:reddit.com OR site:detail.chiebukuro.yahoo.co.jp)"], ["コード", "(site:github.com OR site:huggingface.co)"], ["技術ブログ", "(site:qiita.com OR site:zenn.dev OR site:note.com)"], ["プレスリリース", "(site:prtimes.jp OR intitle:プレスリリース)"], ["ファクトチェック", "(site:factcheckcenter.jp OR site:infact.press OR ファクトチェック)"]],
+  "いつ": [["今日", "after:{d0}"], ["1 週間以内", "after:{d7}"], ["1 か月以内", "after:{d30}"], ["1 年以内", "after:{d365}"], ["1 年より前", "before:{d365}"]],
+  "言語・地域": [["日本語（.jp）", "site:jp"], ["英語圏（.com/.org）", "(site:com OR site:org)"], ["英語で（Bing/Yandex: lang）", "lang:en"], ["日本国内（Bing: loc）", "loc:JP"], ["米国", "loc:US"]],
+  "絞り方": [["完全一致", "\"{q}\""], ["タイトルに含む", "intitle:{q}"], ["URL に含む", "inurl:{q}"], ["本文に含む", "intext:{q}"], ["類義語も", "~{q}"], ["ワイルドカード", "\"{q} *\""]],
+  "除外": [["広告・求人を除く", "-求人 -広告 -PR"], ["まとめ・キュレーションを除く", "-site:matome.naver.jp -まとめ -site:pinterest.com"], ["自サイトを除く", "-site:{d}"], ["動画を除く", "-site:youtube.com"], ["ショッピングを除く", "-site:amazon.co.jp -site:rakuten.co.jp -通販"]],
+  "疑いを調べる": [["詐欺・注意喚起", "(詐欺 OR 注意喚起 OR 被害 OR なりすまし)"], ["デマ・否定", "(デマ OR 事実無根 OR 誤情報 OR 否定)"], ["評判・口コミ", "(評判 OR 口コミ OR レビュー)"], ["同名の別サイト", "intitle:\"{q}\" -site:{d}"]],
+};
+export function compose(q, picks, d = "") { const day = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); const sub = t => t.replace(/\{q\}/g, q).replace(/\{d\}/g, d || q).replace(/\{d0\}/g, day(0)).replace(/\{d7\}/g, day(7)).replace(/\{d30\}/g, day(30)).replace(/\{d365\}/g, day(365)); let base = q; const rest = []; for (const t of picks) { const x = sub(t); if (/\{q\}/.test(t)) base = x; else rest.push(x); } return [base, ...rest].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(); }

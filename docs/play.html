@@ -66,7 +66,7 @@ canvas{max-width:100%;height:auto;background:var(--card);border:1px solid var(--
 .chat{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 .msg{max-width:86%;padding:8px 12px;border-radius:16px;border:1px solid var(--line);font-size:14px;line-height:1.5}.msg.me{align-self:flex-end;background:var(--acc);color:#fff;border-color:var(--acc);border-bottom-right-radius:4px}.msg.bot{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px}
 .msg .ar{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:4px 0;border-top:1px dashed var(--line)}.msg .ar:first-of-type{border-top:0}.msg .ar b{font-size:15px}.msg .ar .conf{font-size:11px;padding:1px 8px}.msg .ar .qn{font-size:12px;color:var(--muted);flex:1}
-.msg .dist{margin:4px 0 2px}.msg .meta{font-size:11px;color:var(--muted);margin-top:4px}
+.msg .dist{margin:4px 0 2px}.msg .meta{font-size:11px;color:var(--muted);margin-top:4px}.msg.typing{color:var(--muted);font-style:italic}.msg .acts{display:flex;gap:6px;margin-top:6px}.msg .acts button{min-height:28px;padding:2px 10px;font-size:12px}
 .chat-quick{display:flex;gap:6px;padding:6px 10px 0;overflow-x:auto;background:var(--card);border-top:1px solid var(--line)}.chat-quick .chip{white-space:nowrap;flex:0 0 auto}
 .chatin{display:flex;gap:8px;padding:8px 10px;background:var(--card);align-items:flex-end}.chatin textarea{min-height:44px;max-height:120px;flex:1;border-radius:22px;padding:10px 14px;resize:none}.chatin button{width:44px;height:44px;border-radius:50%;padding:0;font-size:18px;flex:0 0 44px}
 .hidden{display:none}button.big{font-size:16px;padding:10px 18px}.tool h2{margin-top:4px}
@@ -88,6 +88,7 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
  <summary><span class="dot" id="mdot"></span><b>モデル</b> <span id="mstate" class="pill">準備中…</span><div class="prog"><i id="progbar"></i></div><span class="muted small" id="status"></span><span class="small" id="offline"></span><span class="muted small" style="margin-left:auto">▾ 変更</span></summary>
  <div class="l1"><select id="model"></select><button class="primary" id="load">読み込む</button></div>
  <div class="l2" id="mdesc"></div>
+ <div class="l2" id="mchange"></div>
 </details>
 <div class="nav" id="nav"><button data-t="search" class="on">🔍 調べる</button><button data-t="chat">💬 チャット</button><button data-t="tools">🧰 ツール</button><button data-t="notes">📓 記録</button><button data-t="more">⋯ その他</button></div>
 <div class="subnav hidden" id="subnav-more"><button data-t="bulk">📚 一括判断</button><button data-t="connect">🔗 連携</button><button data-t="verify">🔬 検証</button><button data-t="batch">📊 バッチ評価</button><button data-t="improve">🛠 改良</button><button data-t="viz">🔭 可視化</button><button data-t="models">📦 モデル</button><button data-t="settings">⚙️ 設定</button></div>
@@ -164,17 +165,20 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 </section>
 <section id="t-chat" class="hidden">
 <div class="chat-wrap">
-<div class="chat-top"><span class="muted">質問セット</span><select id="c-mode"><option value="osint">情報の仕分け（種類・緊急度・具体性・拡散・整合）</option><option value="play">「判断」タブの質問</option></select><button class="small c-quick" data-q="/help">使い方</button></div>
+<div class="chat-top"><span class="muted">質問セット</span><select id="c-mode"><option value="osint">情報の仕分け（種類・緊急度・具体性・拡散）</option><option value="play">「調べる」で編集した質問</option><option value="support">問い合わせの振り分け（担当・対応・緊急度・返信要否）</option><option value="survey">アンケート回答（感情・要望・話題）</option></select><span class="small muted" id="c-model"></span><button class="small" id="c-help-btn">使い方</button></div>
+<div id="c-help" class="small" style="padding:8px 12px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--acc) 6%,transparent)"><b>使い方</b>：①文章を送る → 質問セットの答え（確率つき）が返る。②続けて <code>? 返信が必要か</code> や <code>? 種類は | 公的発表 | 報道 | 投稿</code> と送ると、直前の文章にその問いで答える。③ <code>/osint 津市 大雨</code> で収集→要約。JEV は文章を生成しないので、返答は判定と確率だけ。<br>例：<span class="chip c-ex">先週注文した商品が二重に請求されています。返金がなければ解約します。</span> <span class="chip c-ex">【拡散希望】津市で川が氾濫、道路が冠水しています！</span> <a href="#" id="c-help-close">閉じる</a></div>
 <div class="chat" id="chat"></div>
 <div class="chat-quick"><span class="chip c-quick" data-q="/qs">いまの質問</span><span class="chip c-quick" data-q="? 返信が必要か">? 返信が必要か</span><span class="chip c-quick" data-q="? 緊急か">? 緊急か</span><span class="chip c-quick" data-q="? 種類は | 公的発表 | 報道 | 一般の投稿 | 宣伝">? 種類は…</span><span class="chip c-quick" data-q="/ctx clear">根拠を消す</span><span class="chip c-quick" data-q="/clear">履歴を消す</span></div>
-<div class="chatin"><textarea id="c-in" placeholder="メッセージ（? で問い直し）" rows="1"></textarea><button class="primary" id="c-send" disabled title="送信">➤</button></div>
+<div class="chatin"><textarea id="c-in" placeholder="文章を貼る／「? 質問」で直前の文章に問い直す" rows="1"></textarea><button class="primary" id="c-send" disabled title="送信">➤</button></div>
 </div>
 </section>
 <section id="t-tools" class="hidden">
 <div class="card"><p class="hint">検索式の自動生成、OSINT Framework のツール集（対象を入れるとリンクが全部できる）、端末内で動く解析ツール。ファイルは送信しない。</p>
 <div class="chips" id="tool-nav"></div></div>
 <div class="card tool" id="tool-dork"><h2>🔍 Google dorks 自動生成</h2><p class="muted small">キーワード（または対象）を入れるだけで、用途別の検索式をすべて作る。コピーして貼るか、ボタンで各エンジンを開く。演算子を自分で入力する必要はない（自分で組む場合は下の「手動で組む」）。</p>
-<div class="qbox"><input id="g-q" placeholder="例: 津市 大雨 ／ 〇〇株式会社 ／ jma.go.jp"><button class="primary" id="g-run">式を生成</button></div><div id="g-out"></div>
+<div class="qbox"><input id="g-q" placeholder="例: 津市 大雨 ／ 〇〇株式会社 ／ jma.go.jp"><button class="primary" id="g-run">式を生成</button></div>
+<div id="g-composer"></div>
+<div id="g-out"></div>
 <details><summary class="small">手動で組む（演算子を指定）</summary>
 <div class="row"><div><label>用途別ライブラリ（{q} は下のキーワード、{d} はドメイン）</label><select id="d-lib"><option value="">— 選ぶと式が入る —</option></select><label>キーワード／対象</label><input id="d-q" placeholder="例: 避難所 開設状況 ／ city.tsu.lg.jp"></div>
 <div><div class="row"><div><label>site:</label><input id="d-site" placeholder="city.tsu.lg.jp"></div><div><label>filetype:</label><input id="d-ft" placeholder="pdf"></div><div><label>intitle:</label><input id="d-title"></div><div><label>inurl:</label><input id="d-url"></div><div><label>intext:</label><input id="d-text"></div><div><label>除外語（カンマ）</label><input id="d-ex"></div><div><label>after:</label><input id="d-after" placeholder="YYYY-MM-DD"></div><div><label>before:</label><input id="d-before"></div><div><label>OR グループ（カンマ）</label><input id="d-or" placeholder="氾濫, 冠水"></div><div><label>数値範囲 a..b</label><input id="d-range" placeholder="5..7"></div></div>
@@ -273,10 +277,12 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 </section>
 <section id="t-viz" class="hidden">
 <div class="card">
-<p>詳しい数式と解説は <a href="theory.html">仕組みページ</a>。ここでは<b>直近の判断</b>（JEV-JA）の中身を見る。</p>
-<h2>1. 入力列</h2><div id="viz-tokens" class="tokstrip muted">まだ判断していません（JEV-JA のみ）</div>
+<p class="hint">直近に「調べる」で判断した文章の中身を見る。数式と解説は <a href="theory.html">仕組みページ</a>。</p>
+<div id="viz-empty" class="summary">まだ判断していません。<button class="small" id="viz-go">「調べる」で文章を判断する</button></div>
+<h2>0. 何を・どのモデルで</h2><div id="viz-head" class="kv"></div>
+<h2>1. 入力列 <span class="muted small">（JEV-JA のみ。他のモデルは系列の作り方が違う）</span></h2><div id="viz-tokens" class="tokstrip muted">—</div>
 <h2>2. 質問ベクトル u と選択肢ベクトル v の cos</h2><div id="viz-uv" class="tw"></div>
-<h2>3. logit → softmax</h2><div class="formula" id="f2"></div><div id="viz-logits" class="tw"></div>
+<h2>3. logit → softmax <span class="muted small">（全モデル）</span></h2><div class="formula" id="f2"></div><div id="viz-logits" class="tw"></div>
 <h2>4. PCA（● 質問 u、○ 選択肢 v）</h2><canvas id="viz-pca" width="640" height="360"></canvas> <button class="small" id="viz-png">PNG</button>
 <h2>5. 処理時間</h2><div id="viz-time" class="kv"></div>
 </div>
@@ -297,7 +303,7 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 <div class="card">
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
 <p class="muted small" id="storage"></p>
-<p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
+<p><button id="s-recommend">推奨モデルに戻す（端末に合わせて再選択）</button> <button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
 <h2>公開 API の無料枠（超えない仕組み）</h2><div id="s-quota"></div><p><button id="s-cache-clear">API キャッシュを消す</button> <button id="s-quota-reset">使用回数の記録をリセット</button></p>
 <h2>設定のバックアップ</h2><p><button id="s-backup">質問セット・重み・追加モデル・実験ノートを JSON で保存</button> <input type="file" id="s-restore" accept=".json" style="width:auto"></p>
 <h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label> <label style="display:inline"><input type="checkbox" id="s-steps" style="width:auto"> はじめての案内を表示</label></p>
