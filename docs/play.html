@@ -2,175 +2,139 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>JEV Lab — 情報収集・判断</title>
+<title>JEV Lab — 集める・見極める・仕分ける・聞く（端末内の判断モデル）</title>
 <link rel="manifest" href="manifest.json"><meta name="theme-color" content="#0b6e99">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<style>
-html{overflow-x:hidden}body{overflow-wrap:anywhere}select{max-width:100%}.row>*,.grid3>*,.card,.hero>*{min-width:0}.chips select{max-width:100%;flex:1 1 160px}
-/* ---- 上部：モデルバー（折りたたみ） ---- */
-.mbar{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px}
-.mbar summary{list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap;cursor:pointer;min-height:36px}.mbar summary::-webkit-details-marker{display:none}
-.mbar .l1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0 4px}.mbar select{width:auto;max-width:100%;flex:1;min-width:180px}.mbar .pill{margin:0}
-.mbar .l2{font-size:13px;color:var(--muted);margin-top:4px}
-.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:80px;max-width:240px}.prog>i{display:block;height:100%;background:var(--acc);width:0;transition:width .2s}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#b45309}.dot.on{background:#15803d}
-/* ---- ナビ：PC は上のタブ、スマホは下のバー ---- */
-.nav{display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap}.nav button{border-radius:999px;min-height:40px}.nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.subnav{display:flex;gap:6px;padding:8px 16px 0;flex-wrap:wrap}.subnav button.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc);font-weight:600}
-main{padding:12px 16px 80px;max-width:1100px;margin:0 auto}
-.bottom{display:none}
-}
-button{min-height:40px}.actbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.actbar .primary{flex:1 1 200px}
-details.more{display:inline-block}details.more summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--card);min-height:40px;display:inline-flex;align-items:center}details.more summary::-webkit-details-marker{display:none}
-details.more .menu{position:absolute;z-index:4;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;margin-top:4px;box-shadow:0 6px 20px rgba(0,0,0,.15)}details.more .menu button{text-align:left}
-/* ---- ホーム ---- */
-.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}@media(max-width:800px){.hero{grid-template-columns:1fr}}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.tile{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card);cursor:pointer;min-height:96px}.tile b{display:block;font-size:15px;margin-bottom:4px}.tile span{font-size:12px;color:var(--muted)}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}.steps>div{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);font-size:14px}.steps b{display:block;color:var(--acc)}
-.cmp td:first-child{font-weight:600;white-space:nowrap}.cmp td{font-size:13px}
-.hint{font-size:13px;color:var(--muted);margin:4px 0}
-.sug{position:absolute;left:0;right:0;top:100%;z-index:7;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto}.sug div{padding:8px 12px;cursor:pointer;display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line)}.sug div:hover{background:color-mix(in srgb,var(--acc) 10%,transparent)}.sug .k{font-size:11px;color:var(--muted);min-width:60px}.sug .d{font-size:12px;color:var(--muted);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.plan{border:1px dashed var(--acc);border-radius:10px;padding:8px 12px;margin:6px 0;font-size:13px}.dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:8px 0}
-/* ---- 入力 ---- */
-.qbox{display:flex;gap:8px;align-items:stretch}.qbox input,.qbox textarea{font-size:17px;padding:12px;flex:1;min-width:0}.qbox textarea{min-height:48px;max-height:160px;resize:none}.dork{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.dork code{font-size:12px;overflow-wrap:anywhere}.dork .b{display:flex;gap:4px}.dork .b button{min-height:30px;padding:2px 8px;font-size:12px}.trust-big{display:flex;gap:14px;align-items:center}.trust-big>div:first-child{white-space:nowrap;flex:0 0 auto}.trust-big b{font-size:34px}.trust-big>div:last-child{min-width:0}.qbox button{white-space:nowrap;font-size:16px}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center}.chips.scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.chips.scroll .chip{white-space:nowrap;flex:0 0 auto}.chip{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer;background:var(--card);user-select:none;min-height:32px;display:inline-flex;align-items:center}.chip.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc)}.chip input{display:none}.chip.alert{border-color:#be123c;color:#be123c}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:4px 0 8px}.seg button{border:0;border-radius:0;background:var(--card);padding:8px 16px}.seg button.on{background:var(--acc);color:#fff}
-.qcard{border:1px dashed var(--line);border-radius:10px;padding:10px;margin:8px 0}.qcard .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.qcard .hd select{width:auto}.qcard .hd input{flex:1;min-width:140px}
-.tw{overflow-x:auto}.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
-.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--line);font-size:12px;margin:2px}
-input[type=range]{width:100%}.note{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
-details summary{cursor:pointer;color:var(--acc)}.ok{color:#15803d}.warn{color:#b45309}.bad{color:#be123c}
-canvas{max-width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px}
-/* ---- 答えカード ---- */
-.ans{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--card)}.ans .qt{font-size:13px;color:var(--muted)}.ans .big{font-size:20px;font-weight:700;margin:2px 0}
-.conf{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}.conf.hi{background:#dcfce7;color:#166534}.conf.mid{background:#fef3c7;color:#92400e}.conf.lo{background:var(--line);color:var(--muted)}
-:root[data-theme=dark] .conf.hi{background:#14532d;color:#bbf7d0}:root[data-theme=dark] .conf.mid{background:#78350f;color:#fde68a}
-.dist{display:grid;grid-template-columns:minmax(80px,32%) 1fr 56px;gap:4px 8px;align-items:center;font-size:13px}.dist .bar{height:8px}
-.stat{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin:4px 6px 4px 0}.stat b{font-size:18px}
-/* ---- 収集結果カード ---- */
-.item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--card);display:grid;grid-template-columns:1fr auto;gap:6px 12px}.item.new{border-left:4px solid var(--acc)}
-.item .meta{font-size:12px;color:var(--muted)}.item .ttl{font-weight:600}.item .txt{font-size:13px;max-height:3.2em;overflow:hidden}.item.open .txt{max-height:none}
-.item .jv{font-size:13px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.item .trust{text-align:center;min-width:64px}.item .trust b{font-size:22px;display:block}.item .trust .bar{height:6px;margin-top:2px}
-.item .act{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.item .act select{width:auto;padding:4px}.item .act button{min-height:32px;padding:4px 10px}
-.flag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:12px;border:1px solid var(--line)}.flag.on{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc)}.flag.alert{background:#fee2e2;border-color:#be123c;color:#7f1d1d}
-:root[data-theme=dark] .flag.alert{background:#7f1d1d;color:#fecaca}
-.summary{border:1px solid var(--acc);border-radius:10px;padding:10px 12px;margin:8px 0;background:color-mix(in srgb,var(--acc) 6%,transparent)}
-.tokstrip{line-height:2;font-size:13px;word-break:break-all}.tk{display:inline-block;padding:0 4px;margin:1px;border-radius:4px;border:1px solid var(--line)}
-.tk.state{background:color-mix(in srgb,var(--acc) 12%,transparent)}.tk[class*=instr]{background:color-mix(in srgb,#b45309 18%,transparent)}.tk[class*=opt]{background:color-mix(in srgb,#15803d 18%,transparent)}
-.tk.cls,.tk.sep,.tk.q,.tk.opt{font-weight:700;border-color:var(--acc)}
-/* ---- チャット（メッセージアプリ風） ---- */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100dvh - 250px);min-height:380px;border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden}
-.chat-top{display:flex;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--card);font-size:13px;flex-wrap:wrap}.chat-top select{width:auto;padding:4px 8px;font-size:13px;flex:1;min-width:140px}
-.chat{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
-.msg{max-width:86%;padding:8px 12px;border-radius:16px;border:1px solid var(--line);font-size:14px;line-height:1.5}.msg.me{align-self:flex-end;background:var(--acc);color:#fff;border-color:var(--acc);border-bottom-right-radius:4px}.msg.bot{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px}
-.msg .ar{display:flex;gap:6px;align-items:center;justify-content:space-between;padding:4px 0;border-top:1px dashed var(--line)}.msg .ar:first-of-type{border-top:0}.msg .ar b{font-size:15px}.msg .ar .conf{font-size:11px;padding:1px 8px}.msg .ar .qn{font-size:12px;color:var(--muted);flex:1}
-.msg .dist{margin:4px 0 2px}.msg .meta{font-size:11px;color:var(--muted);margin-top:4px}.msg.typing{color:var(--muted);font-style:italic}.msg .acts{display:flex;gap:6px;margin-top:6px}.msg .acts button{min-height:28px;padding:2px 10px;font-size:12px}
-.chat-quick{display:flex;gap:6px;padding:6px 10px 0;overflow-x:auto;background:var(--card);border-top:1px solid var(--line)}.chat-quick .chip{white-space:nowrap;flex:0 0 auto}
-.chatin{display:flex;gap:8px;padding:8px 10px;background:var(--card);align-items:flex-end}.chatin textarea{min-height:44px;max-height:120px;flex:1;border-radius:22px;padding:10px 14px;resize:none}.chatin button{width:44px;height:44px;border-radius:50%;padding:0;font-size:18px;flex:0 0 44px}
-.hidden{display:none}button.big{font-size:16px;padding:10px 18px}.tool h2{margin-top:4px}
-mark{background:#fde68a;color:#1a1d21;border-radius:3px}
-@media(max-width:800px){
-  .nav{display:none}.bottom{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);z-index:6;padding:4px 0 max(4px,env(safe-area-inset-bottom))}
-  .bottom button{border:0;background:none;font-size:11px;padding:6px 0;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;min-height:48px}.bottom button i{font-style:normal;font-size:20px}.bottom button.on{color:var(--acc);font-weight:700}
-  main{padding:10px 12px 90px}header{padding:8px 12px}header nav a{padding:5px 8px;font-size:13px}
-  input,select,textarea{font-size:16px}
-  .qbox{flex-wrap:wrap}.qbox input{min-width:0;width:100%}.qbox button{width:100%}
-  .row,.grid3,.steps{grid-template-columns:1fr}
-  .item{grid-template-columns:1fr}.item .trust{text-align:left;display:flex;gap:10px;align-items:center}.item .trust b{font-size:18px;display:inline}
-  .chat-wrap{height:calc(100dvh - 210px)}
-</style>
 </head>
 <body>
-<header><h1>JEV Lab <span class="muted small" id="ver"></span></h1><nav><a href="index.html">概要・結果</a><a href="play.html" class="on">アプリ</a><a href="theory.html">仕組み</a></nav></header>
-<details class="mbar" id="mbar">
- <summary><span class="dot" id="mdot"></span><b>モデル</b> <span id="mstate" class="pill">準備中…</span><div class="prog"><i id="progbar"></i></div><span class="muted small" id="status"></span><span class="small" id="offline"></span><span class="muted small" style="margin-left:auto">▾ 変更</span></summary>
- <div class="l1"><select id="model"></select><button class="primary" id="load">読み込む</button></div>
- <div class="l2" id="mdesc"></div>
- <div class="l2" id="mchange"></div>
-</details>
-<div class="nav" id="nav"><button data-t="search" class="on">🔍 調べる</button><button data-t="chat">💬 チャット</button><button data-t="tools">🧰 ツール</button><button data-t="notes">📓 記録</button><button data-t="more">⋯ その他</button></div>
-<div class="subnav hidden" id="subnav-more"><button data-t="bulk">📚 一括判断</button><button data-t="connect">🔗 連携</button><button data-t="verify">🔬 検証</button><button data-t="batch">📊 バッチ評価</button><button data-t="improve">🛠 改良</button><button data-t="viz">🔭 可視化</button><button data-t="models">📦 モデル</button><button data-t="settings">⚙️ 設定</button></div>
+<div class="top">
+ <a class="brand" href="index.html" title="概要・結果ページへ">⚖️ JEV Lab <small id="ver"></small></a>
+ <nav id="nav"><button data-t="search" class="on">調べる</button><button data-t="verify">見極める</button><button data-t="triage">仕分ける</button><button data-t="ask">聞く</button><button data-t="more">もっと</button></nav>
+ <span id="status"></span>
+ <div class="mpill" id="mpill" title="モデルの状態（押すと変更）"><span class="dot" id="mdot"></span><b id="mstate">モデル準備中…</b><span class="muted">▾</span></div>
+ <div class="prog"><i id="progbar"></i></div>
+</div>
+<div class="sheet hidden" id="msheet"><div>
+ <h2 style="margin-top:0">モデル <span class="muted small">（端末内で動く Jev 級のみ）</span></h2>
+ <div class="qbox"><select id="model"></select><button class="primary" id="load">読み込む</button></div>
+ <p class="small muted" id="mdesc"></p><p class="small" id="mchange"></p>
+ <p class="small"><span id="offline"></span> <span class="muted" id="storage"></span></p>
+ <p class="hint">モデルを変えると変わる場所：調べる（1 件ごとの種類・信頼性）／見極める（判定・危険度）／仕分ける（経路）／聞く（答え）。同じ入力をもう一度実行すると「モデルによる違い」が並びます。スマホは 100 MB 以下（jev_ja_30m・jevlet_33m・openjev_base_60m）を推奨。</p>
+ <div class="actbar"><button class="small" id="s-recommend">推奨モデルに戻す</button><button class="small" id="msheet-close">閉じる</button></div>
+</div></div>
 <main>
 
-<!-- ================= 検索（すべてここから） ================= -->
+<!-- ================= 調べる ================= -->
 <section id="t-search">
-<div class="card" style="padding-top:10px">
-<div class="qbox" style="position:relative"><textarea id="u-q" rows="1" placeholder="調べたいことを入れる：話題（津市 大雨）／サイト・ドメイン・IP・メール（jma.go.jp）／文章を貼る（SNS の投稿・問い合わせメール）" autocomplete="off"></textarea><button class="primary big" id="u-run">🔍 調べる</button><div id="o-sug" class="sug hidden"></div></div>
-<div class="chips"><span class="small muted">モード:</span><span class="chip on" data-m="auto">自動</span><span class="chip" data-m="topic">話題を集める</span><span class="chip" data-m="target">対象を調査</span><span class="chip" data-m="text">文章を判断</span><span class="chip" data-m="bulk">複数を一括</span><span class="small muted" id="u-detected"></span></div>
-<div class="chips scroll" id="u-presets"><span class="small muted">例:</span></div>
-<div id="o-plan"></div>
-<p class="hint" id="u-hint">モデルは自動で読み込まれ、結果は端末内の JEV が仕分けます（外部 AI に送らない）。<span id="h-stats"></span></p>
-</div>
-<input type="hidden" id="o-q"><input type="hidden" id="r-q"><button id="o-run" class="hidden"></button><button id="r-run" class="hidden"></button><span id="h-speed" class="hidden"></span>
-<div id="u-text" class="hidden"><div class="card"><div id="u-trust"></div><div id="p-out"><span class="muted">モデルを読み込み、文章と質問を入れて「判断する」</span></div>
-<details style="margin-top:8px"><summary class="small">詳細設定（温度・読み出し・手法）</summary><div class="kv"><span>温度 T</span><span><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"> <b id="Tv">1.00</b> <span class="muted small">大きいほど確率が平ら</span></span>
-<span>読み出し</span><span><label style="display:inline"><input type="radio" name="pool" value="span" checked style="width:auto"> span</label> <label style="display:inline"><input type="radio" name="pool" value="marker" style="width:auto"> marker</label> <span class="muted small">（JEV-JA のみ）</span></span>
-<span>手法</span><span><label style="display:inline"><input type="radio" name="method" value="head" checked style="width:auto"> head（判断ヘッド）</label> <label style="display:inline"><input type="radio" name="method" value="cos" style="width:auto"> cos ×<input id="cosScale" value="20" style="width:52px;display:inline"></label></span></div></details>
-<details><summary>質問・根拠を編集して判断し直す</summary><label>用途テンプレ <span class="muted">— 選ぶと例が入る（既定は空）</span></label><select id="p-tmpl"><option value="">— 自分で入力 —</option></select>
-<label>判断したい文章（state）</label><textarea id="p-state" placeholder="例: 先週注文した商品が二重に請求されています。今週中に返金されない場合は解約します。"></textarea>
-<label>根拠（context、任意。1 行 1 件）<span class="muted">— 公的情報や事実。「根拠と整合しているか」の照合に使う</span></label><textarea id="p-ctx" style="min-height:50px"></textarea>
-<label>質問 <span class="muted">— Choice＝どれか一つ／Score＝段階／Noul＝はい・いいえ</span></label>
-<div id="qb"></div>
-<div class="chips"><button class="small" id="q-add-choice">＋ Choice</button> <button class="small" id="q-add-score">＋ Score</button> <button class="small" id="q-add-noul">＋ Noul</button> <span class="muted small">よく使う:</span> <select id="q-quick" style="width:auto;padding:4px"><option value="">— 追加 —</option></select> <button class="small" id="q-save">セット保存</button> <select id="q-sets" style="width:auto;padding:4px"><option value="">保存済みセット</option></select></div>
-<details><summary class="small">JSON で直接編集</summary><textarea id="p-q" style="min-height:140px;font-family:monospace;font-size:12px"></textarea><p><button id="q-apply">JSON を反映</button></p></details>
-<div class="actbar"><button class="primary big" id="p-run" disabled>▶ 判断する</button><details class="more"><summary>⋯ 保存</summary><div class="menu"><button id="p-note">実験ノートに保存</button><button id="p-save">結果 JSON</button><button id="p-send">📤 送る（Discord/Slack/共有）</button><button id="p-copy">結果をコピー</button></div></details></div><p class="hint" id="p-hint"></p>
-</details></div></div>
-<div id="u-target" class="hidden"><div class="card"><div class="chips" id="r-types"><span class="small muted">判定される種類がここに出ます（接頭辞で指定も可: corp: / place: / user: / mail: / tel: / ip: / hash: / flight: / ship: / btc: / eth: / cve: / img:）</span></div>
-<p class="hint">種類ごとに「公開 API（鍵不要・CORS 可）」を自動で叩き、残りは各サービスの検索ページをリンクで開く（OSINT Framework と同じ形）。人物検索・出会い系・ダークウェブ・テロ関連は実装しない。結果は根拠として「情報収集」に渡せる。<a href="#" id="r-fw-open">OSINT フレームワーク一覧（何が自動で、何がリンクか）</a></p>
-<div id="r-fw" class="hidden"></div>
-<div id="r-out"></div></div></div>
-<div id="u-topic" class="hidden"><div class="card"><div class="actbar"><button id="o-judge" disabled>JEV で整理し直す</button><details class="more"><summary>⋯ 保存・書き出し</summary><div class="menu"><button id="o-pack" disabled>証跡 JSON</button><button id="o-csv" disabled>CSV</button><button id="o-md" disabled>Markdown レポート</button><button id="o-note" disabled>実験ノートに保存</button><button id="o-label" disabled>人手ラベル → JSONL</button><button id="o-send" disabled>📤 送る（Discord/Slack/共有）</button></div></details></div>
-<p class="muted small" id="o-diff"></p>
-<div id="o-summary"></div>
-<div id="o-stats"></div>
-<details id="o-triage-box" class="hidden"><summary>仕分けのしきい値（JEV の確信度で自動振り分け）</summary><div class="kv"><span>自動採用 信頼性 ≥</span><span><input type="range" id="o-th-hi" min="0.5" max="0.95" step="0.05" value="0.7" style="width:50%"> <b id="o-th-hi-v">0.70</b></span><span>除外 信頼性 &lt;</span><span><input type="range" id="o-th-lo" min="0.05" max="0.5" step="0.05" value="0.3" style="width:50%"> <b id="o-th-lo-v">0.30</b></span></div><p class="hint">その間が「人手確認」。JEV は確率を返すので、しきい値で運用を変えられる（LLM の文章回答ではこれができない）。</p></details>
-<div class="chips"><input id="o-filter" placeholder="絞り込み（語をカンマ区切り。ハイライト）" style="width:auto;flex:1;min-width:160px"> <select id="o-sort" style="width:auto;padding:4px"><option value="trust">信頼性順</option><option value="time">新しい順</option><option value="source">出典順</option><option value="urgency">緊急度順</option></select> <label class="chip"><input type="checkbox" id="o-only-new"> 新着のみ</label> <label class="chip"><input type="checkbox" id="o-only-official"> 公的・報道のみ</label> <label class="chip"><input type="checkbox" id="o-only-check"> 要確認のみ</label></div>
-<div id="o-out"></div>
-<details><summary>情報源・件数・重み・根拠を変える</summary>
-<div class="chips" id="o-src"></div>
-<div class="chips"><span class="small muted">例:</span><span id="o-presets"></span> <select id="o-hist" style="width:auto;padding:4px"><option value="">履歴</option></select> <button class="small" id="o-watch" title="履歴にある検索をまとめて再収集し、新着だけ表示">🔔 保存した検索の新着を確認</button></div>
-<p class="hint" id="o-hint">収集後に JEV が自動で整理します（モデル未読込なら収集だけ）。対象は出来事・地域・話題。個人の特定・追跡には使いません。<a href="#" id="o-policy-open">利用方針</a></p>
-<div class="note small hidden" id="o-policy">運営者が公開 API として提供しログイン不要で CORS を許可している情報源だけを使う。取得結果は出典 URL と取得時刻つきで記録する（証跡）。レート制限（Nominatim 1 req/s、GDELT 5 s/req）を守る。個人の特定・追跡・プロファイリングには使わない。</div>
-<details><summary>件数・地域・言語・地理照合・重複・信頼性の重み</summary>
-<div class="row"><div>
-<div class="grid3"><div><label>各ソースの件数</label><input id="o-limit" value="5"></div><div><label>気象庁 都道府県コード</label><input id="o-pref" value="240000"></div><div><label>言語</label><select id="o-lang"><option value="ja">ja</option><option value="en">en</option><option value="">指定なし</option></select></div></div>
-<p><label style="display:inline"><input type="checkbox" id="o-auto" checked style="width:auto"> 収集後に自動で JEV 整理</label><br><label style="display:inline"><input type="checkbox" id="o-geo" checked style="width:auto"> 地理照合（地名→座標→標高）</label><br><label style="display:inline"><input type="checkbox" id="o-cluster" checked style="width:auto"> 類似投稿をまとめる（cos ≥ <input id="o-th" value="0.9" style="width:52px;display:inline">）</label></p>
-</div><div>
-<label>信頼性スコアの重み（変えると順位が変わる）</label><div id="o-w" class="kv"></div>
-</div></div>
-</details>
-<label>根拠（context）— 収集後に公的情報と地理情報が自動で入る。編集して照合に使う</label><textarea id="o-ctx" style="min-height:60px" placeholder="1 行 1 件。空でも動く"></textarea>
-</details></div></div>
-<div id="u-dorks" class="hidden"></div>
-<div id="u-tools" class="hidden"></div>
+ <div class="hero" id="home">
+  <h1>集める・見極める・仕分ける・聞く</h1>
+  <p>公開情報を集めて、端末内の判断モデル（Jev 級）が 1 件ずつ「種類・具体性・拡散依頼・根拠との整合」を確率つきで答える。生成しないので嘘を作らず、確信度で「自動／人が確認」に分けられる。<span id="h-stats"></span></p>
+ </div>
+ <div class="ask">
+  <textarea id="u-q" rows="1" placeholder="話題（例: 津市 大雨）／URL・ドメイン・IP・@ユーザー名／投稿やメールの本文を貼る"></textarea>
+  <div class="sug hidden" id="o-sug"></div>
+  <div class="foot"><div class="seg" id="u-modes"><button data-m="auto" class="on">自動</button><button data-m="topic">話題</button><button data-m="target">対象</button><button data-m="text">文章</button></div><span class="small muted" id="u-detected"></span><span class="sp"></span><button class="small" id="u-clear">消す</button><button class="primary" id="u-run">調べる</button></div>
+ </div>
+ <div class="ex" id="u-presets" style="margin:8px 0 4px"></div>
+ <div id="o-plan"></div>
+ <div class="tiles" id="home-tiles" style="margin-top:14px"></div>
+ <div class="page hidden" id="res-page">
+  <div id="res-main">
+   <div id="u-topic" class="hidden">
+    <div class="card" id="o-head"></div>
+    <div id="o-filters" class="chips"></div>
+    <div id="o-out"></div>
+   </div>
+   <div id="u-target" class="hidden"><div id="r-out"></div></div>
+   <div id="u-textgo" class="hidden card"><p class="hint">文章は「見極める」で判定します。</p></div>
+  </div>
+  <aside class="rail">
+   <div id="u-dash"></div>
+   <div id="u-dorks"></div>
+   <div id="u-tools"></div>
+   <details class="card" id="o-settings"><summary class="small b">収集の設定</summary>
+    <label>情報源（自動で選択。変えると固定）</label><div class="chips" id="o-src"></div>
+    <div class="grid3"><div><label>件数/情報源</label><select id="o-limit"><option>5</option><option>10</option><option>20</option></select></div><div><label>言語</label><select id="o-lang"><option value="ja">日本語</option><option value="en">英語</option></select></div><div><label>気象庁の都道府県</label><select id="o-pref"><option value="240000">三重</option><option value="230000">愛知</option><option value="130000">東京</option><option value="270000">大阪</option><option value="010000">北海道</option><option value="400000">福岡</option></select></div></div>
+    <label>根拠（context）— 公的発表・地理情報。整合の判定に使う</label><textarea id="o-ctx" style="min-height:60px"></textarea>
+    <p class="small"><label class="inl"><input type="checkbox" id="o-auto" checked> 届いた分から JEV が判定</label><label class="inl"><input type="checkbox" id="o-geo" checked> 地理照合</label><label class="inl"><input type="checkbox" id="o-cluster"> 類似投稿をまとめる（JEV-JA）</label><input id="o-th" type="hidden" value="0.9"></p>
+    <label>信頼性の重み</label><div class="kv small" id="o-w"></div>
+    <div class="actbar"><button class="small" id="o-judge" disabled>JEV で整理し直す</button><button class="small" id="o-watch">保存した検索を再収集</button></div>
+    <select id="o-hist" class="hidden"></select><datalist id="o-saved"></datalist>
+   </details>
+  </aside>
+ </div>
+ <input id="o-q" type="hidden"><input id="r-q" type="hidden"><button id="o-run" class="hidden"></button><button id="r-run" class="hidden"></button>
 </section>
-<section id="t-bulk" class="hidden">
-<div class="card">
-<p class="hint">複数の文章（問い合わせ・投稿・アンケート回答など）に同じ質問をまとめて当て、表と CSV にする。JEV は生成しないので 1 件あたり数十〜数百 ms。</p>
-<div class="row"><div>
-<label>用途テンプレ（質問と例文が入る）</label><select id="k-tmpl"><option value="">— 「文章を判断」の質問を使う —</option></select>
-<label>テキスト（1 行 1 件）</label><textarea id="k-texts" style="min-height:160px" placeholder="1 行に 1 件"></textarea>
-<input type="file" id="k-file" accept=".txt,.csv" style="width:auto"> <span class="muted small">.txt / .csv（1 列目）を読み込み</span>
-</div><div>
-<label>根拠（任意、全件に共通）</label><textarea id="k-ctx" style="min-height:60px"></textarea>
-<label>並び替えキー（質問 id）</label><input id="k-sort" placeholder="例: urgency">
-<div class="actbar"><button class="primary big" id="k-run" disabled>▶ 一括判断</button><button id="k-stop" disabled>中止</button><details class="more"><summary>⋯ 保存</summary><div class="menu"><button id="k-csv" disabled>CSV</button><button id="k-note" disabled>実験ノートに保存</button></div></details></div>
-<div class="prog"><i id="k-prog"></i></div>
-</div></div>
-<div id="k-summary"></div>
-<div id="k-out" class="tw"></div>
-</div>
+
+<!-- ================= 見極める ================= -->
+<section id="t-verify" class="hidden">
+ <div class="page">
+  <div>
+   <div class="card">
+    <h2 style="margin-top:0">見極める <span class="muted small">— 投稿・メール・主張を 1 回で多面的に判定</span></h2>
+    <label>文章（投稿・メール・記事の一部・主張）</label><textarea id="p-state" placeholder="判定したい文章を貼る。URL が含まれていればドメインの素性も調べる" style="min-height:110px"></textarea>
+    <details id="p-ctx-box"><summary class="small">根拠（context）を足す <span class="muted" id="p-ctx-n"></span></summary><p class="hint">公的発表・報道・地理情報など「確かな情報」を 1 行 1 つ。入れると「根拠と整合しているか」「主張と根拠の関係」を判定する。</p><textarea id="p-ctx" style="min-height:60px"></textarea><div class="actbar"><button class="small" id="p-ctx-collect">この文章の話題を収集して根拠に入れる</button></div></details>
+    <div class="actbar"><button class="primary" id="p-run">判定する</button><select id="p-set" style="width:auto"><option value="verify">標準（信頼性＋危険度）</option></select><button class="small" id="p-clear">消す</button></div>
+    <p class="small muted" id="p-hint"></p>
+   </div>
+   <div id="v-verdict"></div>
+   <div id="p-out"></div>
+   <div id="v-todo"></div>
+   <details class="card"><summary class="b small">質問を自分で決める（上級）</summary><p class="hint">プリセットの質問を編集・追加できる。JSON でも編集可。</p><div id="qb"></div><div class="actbar"><button class="small" id="q-add-choice">＋ 選択</button><button class="small" id="q-add-score">＋ 段階</button><button class="small" id="q-add-noul">＋ はい/いいえ</button><select id="q-quick" style="width:auto"><option value="">よく使う質問…</option></select><select id="q-sets" style="width:auto"></select><button class="small" id="q-save">セット保存</button></div><textarea id="p-q" style="min-height:80px;font-family:monospace;font-size:12px"></textarea><button class="small" id="q-apply">JSON を反映</button> <select id="p-tmpl" class="hidden"><option value="">—</option></select></details>
+  </div>
+  <aside class="rail">
+   <div class="card"><h3 style="margin-top:0">主張と根拠を照合</h3><p class="hint">主張（上の文章）に対して、根拠の各行が「支持／矛盾／無関係」のどれかを判定（citation check）。</p><button class="small" id="v-cite">照合する</button><div id="v-cite-out"></div></div>
+   <div class="card"><h3 style="margin-top:0">同じものか判定</h3><p class="hint">2 つの記述（アカウント・団体・出来事）が同一かを判定（entity alignment）。名寄せ・重複投稿の確認に。</p><textarea id="v-a" placeholder="A" style="min-height:44px"></textarea><textarea id="v-b" placeholder="B" style="min-height:44px;margin-top:6px"></textarea><button class="small" id="v-same" style="margin-top:6px">判定</button><div id="v-same-out"></div></div>
+   <div class="card"><h3 style="margin-top:0">別モデルで照合</h3><p class="hint">同じ文章を別のモデルにも問い、答えの一致を見る（一致＝より確か）。</p><select id="v-model2"></select><button class="small" id="v-cross" style="margin-top:6px">照合する</button><div id="v-cross-out"></div></div>
+   <div id="v-tools"></div>
+  </aside>
+ </div>
 </section>
-<section id="t-chat" class="hidden">
-<div class="chat-wrap">
-<div class="chat-top"><span class="muted">質問セット</span><select id="c-mode"><option value="osint">情報の仕分け（種類・緊急度・具体性・拡散）</option><option value="play">「調べる」で編集した質問</option><option value="support">問い合わせの振り分け（担当・対応・緊急度・返信要否）</option><option value="survey">アンケート回答（感情・要望・話題）</option></select><span class="small muted" id="c-model"></span><button class="small" id="c-help-btn">使い方</button></div>
-<div id="c-help" class="small" style="padding:8px 12px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--acc) 6%,transparent)"><b>使い方</b>：①文章を送る → 質問セットの答え（確率つき）が返る。②続けて <code>? 返信が必要か</code> や <code>? 種類は | 公的発表 | 報道 | 投稿</code> と送ると、直前の文章にその問いで答える。③ <code>/osint 津市 大雨</code> で収集→要約。JEV は文章を生成しないので、返答は判定と確率だけ。<br>例：<span class="chip c-ex">先週注文した商品が二重に請求されています。返金がなければ解約します。</span> <span class="chip c-ex">【拡散希望】津市で川が氾濫、道路が冠水しています！</span> <a href="#" id="c-help-close">閉じる</a></div>
-<div class="chat" id="chat"></div>
-<div class="chat-quick"><span class="chip c-quick" data-q="/qs">いまの質問</span><span class="chip c-quick" data-q="? 返信が必要か">? 返信が必要か</span><span class="chip c-quick" data-q="? 緊急か">? 緊急か</span><span class="chip c-quick" data-q="? 種類は | 公的発表 | 報道 | 一般の投稿 | 宣伝">? 種類は…</span><span class="chip c-quick" data-q="/ctx clear">根拠を消す</span><span class="chip c-quick" data-q="/clear">履歴を消す</span></div>
-<div class="chatin"><textarea id="c-in" placeholder="文章を貼る／「? 質問」で直前の文章に問い直す" rows="1"></textarea><button class="primary" id="c-send" disabled title="送信">➤</button></div>
-</div>
+
+<!-- ================= 仕分ける ================= -->
+<section id="t-triage" class="hidden">
+ <div class="card">
+  <h2 style="margin-top:0">仕分ける <span class="muted small">— 何十件でも同じ問いで、確信度つきで経路を決める</span></h2>
+  <div class="chips" id="k-presets"></div>
+  <p class="small" id="k-desc"></p>
+  <label>1 行 1 件（問い合わせ・メール・投稿・回答）。CSV / スプレッドシート / Bluesky・Mastodon からも</label>
+  <textarea id="k-texts" style="min-height:110px" placeholder="ここに貼る。または「例を入れる」"></textarea>
+  <div class="actbar"><button class="primary" id="k-run" disabled>仕分ける</button><button class="small" id="k-example">例を入れる</button><input type="file" id="k-file" accept=".csv,.txt,.tsv" style="width:auto"><button class="small" id="k-import">他のアプリから取り込む…</button><button class="small" id="k-stop" disabled>中止</button></div>
+  <details><summary class="small">根拠（context）・並び順</summary><textarea id="k-ctx" style="min-height:50px" placeholder="1 行 1 つ"></textarea><label>並び順（質問 id）</label><input id="k-sort"></details>
+  <div class="prog"><i id="k-prog"></i></div>
+ </div>
+ <div id="k-summary"></div>
+ <div id="k-out"></div>
+ <div class="actbar hidden" id="k-acts"><button class="small" id="k-csv">CSV</button><button class="small" id="k-note">実験ノートに保存</button><button class="small" id="k-send">送る（Discord / 共有）</button><button class="small" id="k-label-dl">人手ラベルを JSONL に</button></div>
+ <select id="k-tmpl" class="hidden"></select>
+</section>
+
+<!-- ================= 聞く ================= -->
+<section id="t-ask" class="hidden">
+ <div class="askpage">
+  <div class="card">
+   <h2 style="margin-top:0">文書 <span class="muted small">— 問う相手</span></h2>
+   <textarea id="a-doc" placeholder="記事・メール・議事録・投稿などを貼る（または「調べる」の結果から送る）" style="min-height:90px"></textarea>
+   <div class="actbar"><button class="small" id="a-set">この文書に問う</button><button class="small" id="a-doc-clear">消す</button><span class="small muted" id="a-doc-info"></span></div>
+   <div class="doc" id="a-view"></div>
+  </div>
+  <div class="card">
+   <h2 style="margin-top:0">聞く <span class="muted small">— はい/いいえ・選択・段階・どの行</span></h2>
+   <div class="note">書き方：<code>? 質問</code>＝はい/いいえ　<code>質問 | A | B</code>＝選択　<code>度合い: 質問</code>＝0〜5　<code>どの行: 内容</code>＝該当する行を指す（該当なし可）。生成はしない。</div>
+   <div class="chips" id="a-quick"></div>
+   <div class="log" id="chat"></div>
+   <div class="qbox" style="margin-top:8px"><textarea id="c-in" rows="1" style="min-height:40px;max-height:120px" placeholder="? 返信が必要か"></textarea><button class="primary" id="c-send" disabled>送る</button></div>
+   <div class="actbar"><button class="small" id="c-clear">履歴を消す</button><button class="small" id="c-save">やり取りを保存</button><span class="small muted" id="c-model"></span></div>
+  </div>
+ </div>
+</section>
+
+<!-- ================= もっと ================= -->
+<section id="t-more" class="hidden">
+ <div class="subnav" id="subnav-more"><button data-t="tools">🧰 ツール</button><button data-t="connect">🔗 連携</button><button data-t="labverify">🔬 検証</button><button data-t="batch">📊 評価</button><button data-t="improve">🛠 学習</button><button data-t="viz">🔭 可視化</button><button data-t="notes">📓 ノート</button><button data-t="models">📦 モデル</button><button data-t="settings">⚙️ 設定</button></div>
+ <div class="tiles" id="more-tiles"></div>
 </section>
 <section id="t-tools" class="hidden">
 <div class="card"><p class="hint">検索式の自動生成、OSINT Framework のツール集（対象を入れるとリンクが全部できる）、端末内で動く解析ツール。ファイルは送信しない。</p>
@@ -234,7 +198,7 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 <div class="actbar"><button class="primary" id="wh-save">保存</button><button id="wh-test">テスト送信</button></div><div id="wh-out" class="small"></div></div>
 </div>
 </section>
-<section id="t-verify" class="hidden">
+<section id="t-labverify" class="hidden">
 <div class="card"><p class="hint">「文章を判断」に入れた文章・根拠・質問を使い、<b>何を変えると出力がどう変わるか</b>を測る。各項目に「良い結果」の目安を書いた。</p>
 <div class="row">
  <div><h2>① 根拠あり／なし</h2><p class="muted small">根拠（context）を外すと答えや分布がどれだけ動くか。動けば根拠を参照している。L1 = 確率ベクトルの差の絶対値の和（0〜2）。</p><button id="v-ctx">実行</button><div id="v-ctx-out"></div></div>
@@ -279,6 +243,7 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 <div class="card">
 <p class="hint">直近に「調べる」で判断した文章の中身を見る。数式と解説は <a href="theory.html">仕組みページ</a>。</p>
 <div id="viz-empty" class="summary">まだ判断していません。<button class="small" id="viz-go">「調べる」で文章を判断する</button></div>
+<details><summary class="small">JEV-JA の推論設定（温度 T・プーリング・手法）</summary><div class="grid3"><div><label>温度 T = <span id="Tv">1.00</span></label><input type="range" id="T" min="0.2" max="3" step="0.05" value="1"></div><div><label>プーリング</label><label class="inl"><input type="radio" name="pool" value="span" checked> span</label><label class="inl"><input type="radio" name="pool" value="marker"> marker</label></div><div><label>手法</label><label class="inl"><input type="radio" name="method" value="head" checked> head</label><label class="inl"><input type="radio" name="method" value="cos"> cos ×<input id="cosScale" value="20" style="width:50px;display:inline;padding:2px 4px"></label></div></div></details>
 <h2>0. 何を・どのモデルで</h2><div id="viz-head" class="kv"></div>
 <h2>1. 入力列 <span class="muted small">（JEV-JA のみ。他のモデルは系列の作り方が違う）</span></h2><div id="viz-tokens" class="tokstrip muted">—</div>
 <h2>2. 質問ベクトル u と選択肢ベクトル v の cos</h2><div id="viz-uv" class="tw"></div>
@@ -302,17 +267,16 @@ mark{background:#fde68a;color:#1a1d21;border-radius:3px}
 <section id="t-settings" class="hidden">
 <div class="card">
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
-<p class="muted small" id="storage"></p>
-<p><button id="s-recommend">推奨モデルに戻す（端末に合わせて再選択）</button> <button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
+<p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
 <h2>公開 API の無料枠（超えない仕組み）</h2><div id="s-quota"></div><p><button id="s-cache-clear">API キャッシュを消す</button> <button id="s-quota-reset">使用回数の記録をリセット</button></p>
 <h2>設定のバックアップ</h2><p><button id="s-backup">質問セット・重み・追加モデル・実験ノートを JSON で保存</button> <input type="file" id="s-restore" accept=".json" style="width:auto"></p>
-<h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label> <label style="display:inline"><input type="checkbox" id="s-steps" style="width:auto"> はじめての案内を表示</label></p>
+<h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label></p>
 <h2>端末情報</h2><div id="s-env" class="kv"></div>
 </div>
 </section>
 </main>
-<div class="bottom" id="bottom"><button data-t="search" class="on"><i>🔍</i>調べる</button><button data-t="chat"><i>💬</i>チャット</button><button data-t="tools"><i>🧰</i>ツール</button><button data-t="notes"><i>📓</i>記録</button><button data-t="more"><i>⋯</i>その他</button></div>
-<section id="t-more" class="hidden" style="padding:0 16px 90px;max-width:1100px;margin:0 auto"><div class="tiles" id="more-tiles"></div></section>
-<span id="steps" class="hidden"></span><a id="steps-hide" class="hidden"></a>
+<div id="status2" class="hidden"></div>
+<div class="bottom" id="bottom"><button data-t="search" class="on"><i>🔎</i>調べる</button><button data-t="verify"><i>⚖️</i>見極める</button><button data-t="triage"><i>🗂</i>仕分ける</button><button data-t="ask"><i>💬</i>聞く</button><button data-t="more"><i>⋯</i>もっと</button></div>
 <script type="module" src="app.js"></script>
-</body></html>
+</body>
+</html>

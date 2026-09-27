@@ -260,6 +260,25 @@ Mastodon（タグの公開タイムライン）、Stack Exchange、GitHub リポ
 | 11 | チャットの初期メッセージが長い | 1 行に |
 | 12 | Enter の挙動がスマホで送信になり改行できない | スマホは Enter で改行・送信はボタン（PC は Enter 送信） |
 
+## 4-9. v2.0：機能の意味を定義し直し、既存 Jev の使い方例を機能に、画面を一から再構成
+
+**なぜ作り直したか**：v1.x は「検索」「チャット」「一括判断」など機能名が手段（UI の形）を指していて、何のために使うのかが分からなかった。
+既存 Jev（TypeSafe Jev の公式 patterns / cookbooks、Laya の presets、Jevlet、open-jev）の**文書化された使い方例**を調べ、
+「JEV が情報に付ける付加価値」ごとに 4 つの動詞へまとめ、画面をそれに合わせて一から作り直した（`docs/app.js` `lab.js` `presets.js` `ui.js` `app.css`）。
+
+| 画面 | 何をする | 元にした既存 Jev の使い方例 | JEV が付ける付加価値 |
+|---|---|---|---|
+| **調べる** | 話題を公開 API から集め、1 件ずつ種類・具体性・拡散依頼・緊急度・根拠との整合を判定 | RAG passage classification、re-ranking（TypeSafe cookbook） | 信頼性スコア順・「自動採用／人が確認／除外」・読む件数 N→M・信頼性の高い出典を上に |
+| **見極める** | 投稿・メール・主張を 7〜8 問に**1 回で**答えて、信頼性と危険度を出す | speculative fan-out、guardrails、citation check、entity alignment | 判定から「確認すべきこと」を自動生成（公的発表の検索式・初出探し・リンク先調査）、主張と根拠を行ごとに支持／矛盾、同一かの判定、別モデルで照合 |
+| **仕分ける** | 問い合わせ・メール・投稿・アンケートを何十件でも同じ問いで仕分け | intent routing、confidence-gated routing、Laya の triage / email / guard / moderation / router presets | 9 つのプリセット（質問セット＋経路ルール）、確信度のしきい値スライダーで再判定なしに経路が変わる、人手ラベル → JSONL |
+| **聞く** | 文書を置いて、はい／いいえ・選択・段階・「どの行に書いてある？」で問う | line-by-line semantic find（TypeSafe cookbook）、Jevlet の command palette | 旧「チャット」を置き換え。生成しないので答えは常に確率つき、該当行をハイライト、「該当なし」を許す |
+
+- **チャット欄の意味**：Jev 級モデルは文を生成しないので、会話 UI は誤解を招いていた。v2.0 では「文書に問う」だけの画面（聞く）にし、答えは分布と確信度で返す。
+- **検索の意味**：「調べる」は収集＋仕分けの入口。長文を貼れば「見極める」へ、URL・IP などは「対象の調査」へ自動で振り分ける。
+- **共通の仕組み**：確信度のしきい値（GATE、既定 0.7）を全画面で共有。しきい値未満は必ず「人が確認」へ落ちる（TypeSafe の confidence-gated routing）。
+- 研究向け機能（検証・評価・学習・可視化・ノート・モデル・連携・設定・ツール）は「もっと」の下に集約（中身は v1.1 と同じ、`lab.js`）。
+- 既存 Jev の使い方例の調査結果（出典つき）は `docs/theory.html` ではなく本節の表と `docs/presets.js` の `origin` に記載。
+
 ## 4''. 判断ヘッド v2 と「改良の仕組み」
 
 学習ログの精査で、**ヘッドの入力（ModernBERT-Ja の隠れ状態、|u|≈85）が正規化されておらず tanh が飽和して全選択肢に同じ logit を出していた**ことを確認した（pre-activation ≈117、logit の標準偏差 1e-7）。v0.4 でヘッドに LayerNorm を入れ（`DecisionHead(norm=True)`）、エンコーダ固定でヘッドだけを高速に学習する `train_head.py` を追加した（ベクトルをキャッシュし 1 epoch 数秒）。
