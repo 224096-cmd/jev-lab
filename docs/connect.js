@@ -14,7 +14,7 @@ const item = (source, o) => ({ source, fetched_at: new Date().toISOString(), ...
 const K = "jev.connect"; export const conf = { load() { try { return JSON.parse(localStorage.getItem(K) || "{}"); } catch { return {}; } }, save(c) { localStorage.setItem(K, JSON.stringify(c)); }, set(k, v) { const c = this.load(); c[k] = v; this.save(c); }, del(k) { const c = this.load(); delete c[k]; this.save(c); } };
 
 /* ---------- 受け取り: URL パラメータ ---------- */
-export function parseIncoming() { const p = new URLSearchParams(location.search); const o = {}; for (const k of ["text", "title", "url", "q", "target", "tmpl", "run", "tab", "ctx"]) if (p.has(k)) o[k] = p.get(k); if (!Object.keys(o).length) return null; history.replaceState(null, "", location.pathname); return o; }
+export function parseIncoming() { const p = new URLSearchParams(location.search); const o = {}; for (const k of ["text", "title", "url", "q", "target", "tmpl", "run", "tab", "ctx", "import"]) if (p.has(k)) o[k] = p.get(k); if (!Object.keys(o).length) return null; history.replaceState(null, "", location.pathname); return o; }
 export const appUrl = () => location.origin + location.pathname;
 export const bookmarklet = () => `javascript:(function(){var t=String(window.getSelection&&window.getSelection().toString()||'').trim()||document.title;window.open('${appUrl()}?text='+encodeURIComponent(t.slice(0,2000))+'&url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title.slice(0,120))+'&run=1','_blank')})()`;
 

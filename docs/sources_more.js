@@ -59,7 +59,7 @@ Object.assign(MORE_SOURCES, SEARCH_SOURCES);
 /* 読み取り（Reader）：任意の URL を本文テキスト（Markdown）に。r.jina.ai（鍵なし 20 回/分）。ページ分析・内蔵リーダーに使う */
 export async function readPage(url) { const t = await apiFetch("jina", `https://r.jina.ai/${url}`, { parse: "text", ttl: 6 * 3600 }); const m = /^Title:\s*(.*)$/m.exec(t); const src = /^URL Source:\s*(.*)$/m.exec(t); const pub = /^Published Time:\s*(.*)$/m.exec(t); const body = t.split(/^Markdown Content:\s*$/m)[1] || t; return { title: m?.[1]?.trim() || "", url: src?.[1]?.trim() || url, published: pub?.[1]?.trim() || "", markdown: body.trim() }; }
 /* Markdown → 段落テキスト（リンク・画像を外す） */
-export function mdToText(md) { return md.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`>#|]+/g, " ").split(/\n+/).map(s => s.replace(/\s+/g, " ").trim()).filter(s => s.length >= 8); }
+export function mdToText(md) { return md.replace(/^(Title|URL Source|Published Time|Markdown Content):.*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`>#|]+/g, " ").split(/\n+/).map(s => s.replace(/\s+/g, " ").trim()).filter(s => s.length >= 8); }
 /* Wikidata：サイト名（タイトル）で項目を探し、公式サイト(P856)がこのドメインのものを採用 → 種類(P31)・国(P17)、同じ種類・同じ国の項目（類似サイト） */
 export async function wikidataSite(domain, title = "") { const d = domain.replace(/^www\./, "").toLowerCase(); const api = p => apiFetch("wikidata", `https://www.wikidata.org/w/api.php?${p}&format=json&origin=*`, { ttl: 7 * 86400 });
   const names = [...new Set([title.split(/[|｜\-–—:：]/)[0].trim(), title.trim(), d.split(".")[0]].filter(x => x && x.length >= 2))].slice(0, 3); let hit = null, ents = {};
