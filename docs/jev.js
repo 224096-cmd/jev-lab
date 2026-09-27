@@ -367,12 +367,59 @@ export class JevletJev {
   }
 }
 function mkAnswer(q, labels, p, z) { const am = p.indexOf(Math.max(...p)); const a = { id: q.id, type: q.type, distribution: { labels, probabilities: p }, logits: z, confidence: p[am] }; if (q.type === "choice") a.choice = labels[am]; else if (q.type === "score") { const vals = q.values || labels.map((_, i) => i); a.score = p.reduce((s, pi, i) => s + pi * vals[i], 0); a.level = labels[am]; } else { a.p_yes = p[0]; a.noul = p[0] >= 0.5; } return a; }
+
+/* "gliclass": OpenJev Verdict（heman10x/rlcd-modernbert-151m、GLiClass 形、英語、Apache-2.0）。
+   系列 <<LABEL>>opt1<<LABEL>>opt2…<<LABEL>>insufficient evidence<<SEP>>Question: q\n\nContext:\nstate（core/formatting.py と同じ）。
+   出力 logits[:, :K] を選択肢順に読み、K（棄権枠込み）ごとの温度で割って softmax。棄権枠は「判断できない」として answer.abstain に残す */
+export class GliClassJev {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "gliclass"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
+  async load(onProgress = () => {}) {
+    const getf = f => getModelFile(this.name, f, this.base, onProgress); const txt = b => new TextDecoder().decode(b);
+    this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
+    this.tok = new PreTrainedTokenizer(JSON.parse(txt(await getf("tokenizer.json"))), JSON.parse(txt(await getf("tokenizer_config.json"))));
+    const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
+    onProgress("ONNX セッションを作成中"); this.sess = await createSession(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext }); this.backend = "wasm"; onProgress(""); return this;
+  }
+  static labelsOf(q) { if (q.type === "choice") return q.options.map(o => `It is ${o}`); if (q.type === "score") return q.levels.map((l, i) => `${l} (Value: ${q.values?.[i] ?? i})`); return [`true: ${q.instructions}`, `false: not ${q.instructions}`]; }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const ctx = (!context || !context.length) ? state : `Evidence:\n${context.map(c => "- " + c).join("\n")}\n\n${state}`; const ABST = "insufficient evidence"; const MAXC = this.cfg.max_candidates || 25;
+    const prompts = questions.map(q => { const labels = [...GliClassJev.labelsOf(q).slice(0, MAXC - 1), ABST]; const text = q.type === "noul" ? `Context:\n${ctx}\n\nEvaluate proposition: ${q.instructions}` : `Question: ${q.instructions}\n\nContext:\n${ctx}`; return { labels, s: labels.map(l => `<<LABEL>>${l}`).join("") + "<<SEP>>" + text }; });
+    const encs = prompts.map(p => Array.from(this.tok(p.s, { truncation: true, max_length: this.cfg.max_len || 1024 }).input_ids.data, Number)); const n = encs.length, L = Math.max(...encs.map(e => e.length)); const PAD = 50283;
+    const ids = new BigInt64Array(n * L).fill(BigInt(PAD)), att = new BigInt64Array(n * L); encs.forEach((e, i) => e.forEach((x, j) => { ids[i * L + j] = BigInt(x); att[i * L + j] = 1n; }));
+    opts.onProgress?.(`${questions.length} 問を 1 回で判定中（${this.name}, ${L} tok）`);
+    const out = await this.sess.run({ input_ids: new ort.Tensor("int64", ids, [n, L]), attention_mask: new ort.Tensor("int64", att, [n, L]) }); const Z = Array.from(out.logits.data), C = out.logits.dims[1];
+    const answers = questions.map((q, i) => { const K = prompts[i].labels.length; const z = Z.slice(i * C, i * C + K); const T = (this.cfg.per_k?.[String(K)] ?? this.cfg.temperature ?? 1) * (opts.T || 1); const pAll = softmax(z, T); const labels = JevJa.optionsOf(q); let p = pAll.slice(0, K - 1); const abst = pAll[K - 1]; const s = p.reduce((a, b) => a + b, 0) || 1; p = p.map(x => x / s); const a = mkAnswer(q, labels, p, z.slice(0, K - 1)); a.abstain = abst; if (abst > Math.max(...p) * (1 - abst)) a.abstained = true; return a; });
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: L, answers };
+  }
+}
+/* "biencoder": verdict-small（Manav2op/verdict-small、multilingual-e5-small、多言語、Apache-2.0）。
+   状況 "query: state" と各選択肢 "passage: 質問 選択肢" を別々に埋め込み、cos × 20 を logit として softmax（Verdict パッケージと同じ） */
+export class BiEncJev {
+  constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "biencoder"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
+  async load(onProgress = () => {}) {
+    const getf = f => getModelFile(this.name, f, this.base, onProgress); const txt = b => new TextDecoder().decode(b);
+    this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
+    const tj = JSON.parse(txt(await getf("tokenizer.json"))); const fixMeta = pt => { if (!pt) return; if (pt.type === "Metaspace" && pt.add_prefix_space == null) pt.add_prefix_space = (pt.prepend_scheme ?? "always") !== "never"; (pt.pretokenizers || []).forEach(fixMeta); }; fixMeta(tj.pre_tokenizer);
+    this.tok = new PreTrainedTokenizer(tj, JSON.parse(txt(await getf("tokenizer_config.json"))));
+    const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
+    onProgress("ONNX セッションを作成中"); this.sess = await createSession(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext }); this.backend = "wasm"; onProgress(""); return this;
+  }
+  async embed(texts) { const encs = texts.map(t => Array.from(this.tok(t, { truncation: true, max_length: this.cfg.max_len || 512 }).input_ids.data, Number)); const n = encs.length, L = Math.max(...encs.map(e => e.length)); const ids = new BigInt64Array(n * L).fill(1n), att = new BigInt64Array(n * L); encs.forEach((e, i) => e.forEach((x, j) => { ids[i * L + j] = BigInt(x); att[i * L + j] = 1n; }));
+    const out = await this.sess.run({ input_ids: new ort.Tensor("int64", ids, [n, L]), attention_mask: new ort.Tensor("int64", att, [n, L]) }); const E = out.sentence_embedding; const d = E.dims[1]; const V = []; for (let i = 0; i < n; i++) { const v = Array.from(E.data.slice(i * d, (i + 1) * d)); const nm = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1; V.push(v.map(x => x / nm)); } return V; }
+  async decide(state, questions, context, opts = {}) {
+    const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const qp = this.cfg.query_prefix || "query: ", pp = this.cfg.passage_prefix || "passage: "; const scale = this.cfg.scale || 20;
+    opts.onProgress?.(`${questions.length} 問を判定中（${this.name}）`); const [qv] = await this.embed([qp + full]);
+    const answers = []; for (const q of questions) { const labels = JevJa.optionsOf(q); const texts = q.type === "noul" ? [`${pp}${q.instructions} — yes, this holds`, `${pp}${q.instructions} — no, this does not hold`] : labels.map(l => `${pp}${q.instructions} ${l}`); const P = await this.embed(texts); const z = P.map(v => scale * v.reduce((s, x, k) => s + x * qv[k], 0)); const p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z)); }
+    return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, answers };
+  }
+}
+
 export async function isStoredAny(name, files) { const ks = new Set(await store.keys()); return files.every(f => ks.has(`${name}/${f}`)); }
 
 /* registry + index からモデル一覧を作り、名前でロードする */
 export async function listAllModels() {
   const out = [];
-  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "crossenc" ? "既存 Jev（日本語・PC ブラウザ向け）" : m.kind === "laya" ? "既存 Jev（Laya・多言語・PC ブラウザ向け）" : m.kind === "jevlet" ? "既存 Jev（Jevlet・英語・スマホ可）" : "JEV-JA（自作・スマホ可・学習可）" }); } catch { }
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "jev_ja" || !m.kind ? "自作 JEV-JA（日本語・学習可）" : (m.language === "ja" ? "既存 Jev（日本語）" : /multi/.test(m.language || "") ? "既存 Jev（多言語）" : "既存 Jev（英語）") }); } catch { }
   try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.group || "既存 Jev（HF から取得）" }); } catch { }
   try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
   return out;
@@ -384,5 +431,7 @@ export async function loadModelByName(name, onProgress) {
   if (e.kind === "open-jev-onnx") return new OpenJevOnnx(e).load(onProgress);
   if (e.kind === "laya") return new LayaJev(e).load(onProgress);
   if (e.kind === "jevlet") return new JevletJev(e).load(onProgress);
+  if (e.kind === "gliclass") return new GliClassJev(e).load(onProgress);
+  if (e.kind === "biencoder") return new BiEncJev(e).load(onProgress);
   throw new Error("unsupported kind: " + e.kind);
 }

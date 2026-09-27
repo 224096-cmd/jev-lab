@@ -7,26 +7,6 @@
       "backbone": "sbintuitions/modernbert-ja-30m"
     },
     {
-      "name": "jev_ja_310m_argos",
-      "kind": "crossenc",
-      "size_mb": 316.4,
-      "trained": true,
-      "backbone": "argos1111/modernbert-ja-310m-jev",
-      "language": "ja",
-      "license": "CC BY-SA 4.0",
-      "note": "既存の日本語 Jev（310M、JGLUE で検証精度 0.90）。int8 316 MB、PC ブラウザ向け（大）"
-    },
-    {
-      "name": "laya_multi_322m",
-      "kind": "laya",
-      "size_mb": 323.1,
-      "trained": true,
-      "backbone": "convaiinnovations/laya-multilingual",
-      "language": "multilingual",
-      "license": "Apache-2.0",
-      "note": "Laya multilingual int8 323 MB（大、PC ブラウザ向け）。精度重視ならこちら"
-    },
-    {
       "name": "jevlet_33m",
       "kind": "jevlet",
       "size_mb": 35.6,
@@ -55,6 +35,26 @@
       "language": "multilingual",
       "license": "Apache-2.0",
       "note": "Laya multilingual を語彙間引き＋4 bit で 92 MB（＋tokenizer 34 MB）。PC 向け、強いスマホでも可。確率は 322m 版より粗い"
+    },
+    {
+      "name": "verdict_151m",
+      "kind": "gliclass",
+      "size_mb": 80.1,
+      "trained": true,
+      "backbone": "heman10x/rlcd-modernbert-151m",
+      "language": "en",
+      "license": "Apache-2.0",
+      "note": "OpenJev Verdict（RLCD、ModernBERT 151M、2026-09）。1 forward で全選択肢＋棄権枠を判定、較正済み（ECE 3%）。語彙間引き＋int8 埋め込み＋4 bit 本体で 80 MB。英語モデルだが日本語もそれなりに読む"
+    },
+    {
+      "name": "verdict_small_e5",
+      "kind": "biencoder",
+      "size_mb": 42.3,
+      "trained": true,
+      "backbone": "Manav2op/verdict-small (multilingual-e5-small)",
+      "language": "multilingual",
+      "license": "Apache-2.0",
+      "note": "verdict-small（2026-09）。多言語 e5-small を型付き判断で微調整した bi-encoder。語彙 250k→50k 間引き＋int8 で 42 MB（＋tokenizer 17 MB）。軽くて速い。日本語可"
     }
   ]
 }

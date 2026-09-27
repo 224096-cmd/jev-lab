@@ -1,0 +1,1 @@
+{"tokenizer_class": "PreTrainedTokenizerFast", "model_max_length": 8192, "cls_token": "[CLS]", "sep_token": "[SEP]", "pad_token": "[PAD]", "mask_token": "[MASK]", "unk_token": "[UNK]"}

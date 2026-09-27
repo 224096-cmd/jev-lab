@@ -37,6 +37,25 @@ export const MORE_SOURCES = {
   commons: { name: "Wikimedia Commons（画像・図）", lang: "multi", kind: "reference", cat: "百科・資料", desc: "commons.wikimedia.org。出典の明らかな画像（逆画像検索の照合に）。",
     async run(q, opt) { const r = await apiFetch("commons", `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srnamespace=6&srlimit=${opt.limit || 5}&format=json&origin=*`); return (r.query?.search || []).map(s => item("commons", { title: s.title.replace(/^File:/, ""), text: strip(s.snippet), time: s.timestamp, url: `https://commons.wikimedia.org/wiki/${enc(s.title)}`, image: `https://commons.wikimedia.org/wiki/Special:FilePath/${enc(s.title.replace(/^File:/, ""))}?width=320` })); } },
 };
+
+/* ---- 検索エンジン（dorks をそのまま自動実行）----
+   DuckDuckGo / Bing の結果ページを Reader（r.jina.ai）でテキスト化して読む。site: filetype: intitle: "…" -語 などの演算子はそのまま使える。
+   各エンジンの負荷にならないよう 1 回の収集で数クエリ・1 分に数回まで（quota.js）。Google は規約上、自動取得しない */
+/* DDG/Bing 向けに式を整える：after:/before: は非対応なので外し、多語の "…" は引用符を外す（DDG は完全一致＋OR で 0 件になりやすい） */
+export const engineQuery = q => q.replace(/\s(after|before):\S+/g, "").replace(/"([^"]+)"/g, (m, p) => /\s/.test(p) ? p : m).replace(/\s+/g, " ").trim();
+const ddgUrl = u => { try { const m = /uddg=([^&]+)/.exec(u); return m ? decodeURIComponent(m[1]) : u; } catch { return u; } };
+const bingUrl = u => { try { const m = /[?&]u=a1([A-Za-z0-9_-]+)/.exec(u); if (!m) return u; const b = m[1].replace(/-/g, "+").replace(/_/g, "/"); return decodeURIComponent(escape(atob(b + "=".repeat((4 - b.length % 4) % 4)))); } catch { return u; } };
+function parseResults(md, fix, limit) { const out = []; const lines = md.split("\n"); for (let i = 0; i < lines.length && out.length < limit; i++) { const m = /^(?:\d+\.\s+)?##\s+\[(.+?)\]\((https?:[^)\s]+)\)/.exec(lines[i]); if (!m) continue; let snippet = ""; for (let j = i + 1; j < Math.min(lines.length, i + 6); j++) { const t = lines[j].replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_]/g, "").trim(); if (t.length > 20 && !/^##/.test(t)) { snippet = t; break; } } const url = fix(m[2]); if (/duckduckgo\.com|bing\.com\/ck/.test(url)) continue; out.push({ title: m[1].replace(/\*\*/g, "").replace(/^PDF\s+/, "[PDF] "), url, text: snippet.slice(0, 400) }); } return out; }
+export const SEARCH_SOURCES = {
+  ddg_web: { name: "DuckDuckGo 検索（演算子可）", lang: "multi", kind: "search", cat: "検索エンジン", desc: "検索式をそのまま自動実行（site: filetype: intitle: \"…\" -語）。結果ページを Reader でテキスト化。1 分に数回まで。",
+    async run(q, opt) { q = engineQuery(q); const t = await apiFetch("jina", `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${enc(q)}${opt.lang === "ja" ? "&kl=jp-jp" : ""}`, { parse: "text", ttl: 3600 }); return parseResults(t.split(/^Markdown Content:\s*$/m)[1] || t, ddgUrl, opt.limit || 8).map(r => item("ddg_web", { ...r, official: /\.(go|lg|ac)\.jp\//.test(r.url) })); } },
+  bing_web: { name: "Bing 検索（演算子可）", lang: "multi", kind: "search", cat: "検索エンジン", desc: "検索式を自動実行（site: filetype: intitle: inbody: loc: lang:）。結果ページを Reader でテキスト化。",
+    async run(q, opt) { q = engineQuery(q); const t = await apiFetch("jina", `https://r.jina.ai/https://www.bing.com/search?q=${enc(q)}${opt.lang === "ja" ? "&setlang=ja&cc=JP" : ""}`, { parse: "text", ttl: 3600 }); return parseResults(t.split(/^Markdown Content:\s*$/m)[1] || t, bingUrl, opt.limit || 8).map(r => item("bing_web", { ...r, official: /\.(go|lg|ac)\.jp\//.test(r.url) })); } },
+  gnews: { name: "Google ニュース（RSS）", lang: "multi", kind: "news", cat: "報道", desc: "Google ニュースの検索 RSS を rss2json（無料 API）経由で取得。演算子 site: / when:7d が使える。",
+    async run(q, opt) { const feed = `https://news.google.com/rss/search?q=${encodeURIComponent(q).replace(/%20/g, "+")}&hl=${opt.lang === "en" ? "en-US&gl=US&ceid=US:en" : "ja&gl=JP&ceid=JP:ja"}`; const r = await apiFetch("rss2json", `https://api.rss2json.com/v1/api.json?rss_url=${enc(feed)}&count=${opt.limit || 10}`, { ttl: 900 }); if (r.status !== "ok") throw new Error(r.message || "rss2json"); return (r.items || []).map(x => item("gnews", { title: x.title.replace(/\s+-\s+[^-]+$/, ""), text: strip(x.description).slice(0, 300) || x.title, time: x.pubDate ? new Date(x.pubDate).toISOString() : undefined, url: x.link, domain: x.source?.url })); } },
+};
+Object.assign(MORE_SOURCES, SEARCH_SOURCES);
+
 /* 読み取り（Reader）：任意の URL を本文テキスト（Markdown）に。r.jina.ai（鍵なし 20 回/分）。ページ分析・内蔵リーダーに使う */
 export async function readPage(url) { const t = await apiFetch("jina", `https://r.jina.ai/${url}`, { parse: "text", ttl: 6 * 3600 }); const m = /^Title:\s*(.*)$/m.exec(t); const src = /^URL Source:\s*(.*)$/m.exec(t); const pub = /^Published Time:\s*(.*)$/m.exec(t); const body = t.split(/^Markdown Content:\s*$/m)[1] || t; return { title: m?.[1]?.trim() || "", url: src?.[1]?.trim() || url, published: pub?.[1]?.trim() || "", markdown: body.trim() }; }
 /* Markdown → 段落テキスト（リンク・画像を外す） */

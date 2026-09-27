@@ -1,0 +1,1 @@
+{"tokenizer_class": "XLMRobertaTokenizerFast", "model_max_length": 512, "cls_token": "<s>", "sep_token": "</s>", "pad_token": "<pad>", "mask_token": "<mask>", "unk_token": "<unk>"}

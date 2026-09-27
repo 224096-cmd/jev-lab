@@ -11,7 +11,7 @@
 <body>
 <div class="top">
  <a class="brand" href="index.html" title="概要・結果ページへ">⚖️ JEV Lab <small id="ver"></small></a>
- <nav id="nav"><button data-t="search" class="on">調べる</button><button data-t="verify">見極める</button><button data-t="triage">仕分ける</button><button data-t="ask">聞く</button><button data-t="more">もっと</button></nav>
+ <nav id="nav"><button data-t="search" class="on">調べる</button><button data-t="verify">見極める</button><button data-t="triage">仕分ける</button><button data-t="more">研究</button></nav>
  <span id="status"></span>
  <div class="mpill" id="mpill" title="モデルの状態（押すと変更）"><span class="dot" id="mdot"></span><b id="mstate">モデル準備中…</b><span class="muted">▾</span></div>
  <div class="prog"><i id="progbar"></i></div>
@@ -29,11 +29,11 @@
 <!-- ================= 調べる ================= -->
 <section id="t-search">
  <div class="hero" id="home">
-  <h1>集める・見極める・仕分ける・聞く</h1>
+  <h1>集める・見極める・仕分ける</h1>
   <p>公開情報を集めて、端末内の判断モデル（Jev 級）が 1 件ずつ「種類・具体性・拡散依頼・根拠との整合」を確率つきで答える。生成しないので嘘を作らず、確信度で「自動／人が確認」に分けられる。<span id="h-stats"></span></p>
  </div>
  <div class="ask">
-  <textarea id="u-q" rows="1" placeholder="話題（例: 津市 大雨）／サイトの URL（分析・要点・類似サイト）／IP・@ユーザー名／投稿やメールの本文を貼る"></textarea>
+  <textarea id="u-q" rows="1" placeholder="話題や検索式（例: 津市 大雨 ／ site:go.jp 避難所 filetype:pdf）／サイトの URL／投稿やメールの本文"></textarea>
   <div class="sug hidden" id="o-sug"></div>
   <div class="foot"><div class="seg" id="u-modes"><button data-m="auto" class="on">自動</button><button data-m="topic">話題</button><button data-m="target">対象</button><button data-m="text">文章</button></div><span class="small muted" id="u-detected"></span><span class="sp"></span><button class="small" id="u-clear">消す</button><button class="primary" id="u-run">調べる</button></div>
  </div>
@@ -56,7 +56,7 @@
    <div id="u-tools"></div>
    <details class="card" id="o-settings"><summary class="small b">収集の設定</summary>
     <label>情報源（自動で選択。変えると固定）</label><div class="chips" id="o-src"></div>
-    <div class="grid3"><div><label>件数/情報源</label><select id="o-limit"><option>5</option><option>10</option><option>20</option></select></div><div><label>言語</label><select id="o-lang"><option value="ja">日本語</option><option value="en">英語</option></select></div><div><label>地域（防災情報用）</label><select id="o-pref"><option value="240000">三重</option><option value="230000">愛知</option><option value="130000">東京</option><option value="270000">大阪</option><option value="010000">北海道</option><option value="400000">福岡</option></select></div></div>
+    <div class="grid3"><div><label>件数/情報源</label><input id="o-limit" type="number" min="1" max="30" value="5"></div><div><label>言語</label><select id="o-lang"><option value="ja">日本語</option><option value="en">英語</option></select></div><div><label>地域（防災情報用）</label><select id="o-pref"><option value="240000">三重</option><option value="230000">愛知</option><option value="130000">東京</option><option value="270000">大阪</option><option value="010000">北海道</option><option value="400000">福岡</option></select></div></div>
     <label>根拠（context）— 公的発表・地理情報。整合の判定に使う</label><textarea id="o-ctx" style="min-height:60px"></textarea>
     <p class="small"><label class="inl"><input type="checkbox" id="o-auto" checked> 届いた分から JEV が判定</label><label class="inl"><input type="checkbox" id="o-geo" checked> 地理照合</label><label class="inl"><input type="checkbox" id="o-cluster"> 類似投稿をまとめる（JEV-JA）</label><input id="o-th" type="hidden" value="0.9"></p>
     <label>信頼性の重み</label><div class="kv small" id="o-w"></div>
@@ -82,6 +82,9 @@
    <div id="v-verdict"></div>
    <div id="p-out"></div>
    <div id="v-todo"></div>
+   <div class="card" id="ask-card"><h3 style="margin-top:0">この文章に聞く <span class="muted small">— はい/いいえ・選択・段階・「どの行に書いてある？」（生成しない）</span></h3>
+    <div class="askpage"><div><div class="actbar"><button class="small" id="a-set">上の文章を置く</button><button class="small" id="a-doc-clear">消す</button><span class="small muted" id="a-doc-info"></span></div><textarea id="a-doc" class="hidden"></textarea><div class="doc" id="a-view"></div></div>
+    <div><div class="chips" id="a-quick"></div><div class="log" id="chat" style="min-height:120px"></div><div class="qbox" style="margin-top:8px"><textarea id="c-in" rows="1" style="min-height:40px;max-height:120px" placeholder="? 返信が必要か ／ どの行: 避難所の場所"></textarea><button class="primary" id="c-send" disabled>送る</button></div><div class="actbar"><button class="small" id="c-clear">履歴を消す</button><button class="small" id="c-save">保存</button><span class="small muted" id="c-model"></span></div></div></div></div>
    <details class="card"><summary class="b small">質問を自分で決める（上級）</summary><p class="hint">プリセットの質問を編集・追加できる。JSON でも編集可。</p><div id="qb"></div><div class="actbar"><button class="small" id="q-add-choice">＋ 選択</button><button class="small" id="q-add-score">＋ 段階</button><button class="small" id="q-add-noul">＋ はい/いいえ</button><select id="q-quick" style="width:auto"><option value="">よく使う質問…</option></select><select id="q-sets" style="width:auto"></select><button class="small" id="q-save">セット保存</button></div><textarea id="p-q" style="min-height:80px;font-family:monospace;font-size:12px"></textarea><button class="small" id="q-apply">JSON を反映</button> <select id="p-tmpl" class="hidden"><option value="">—</option></select></details>
   </div>
   <aside class="rail">
@@ -111,58 +114,12 @@
  <select id="k-tmpl" class="hidden"></select>
 </section>
 
-<!-- ================= 聞く ================= -->
-<section id="t-ask" class="hidden">
- <div class="askpage">
-  <div class="card">
-   <h2 style="margin-top:0">文書 <span class="muted small">— 問う相手</span></h2>
-   <textarea id="a-doc" placeholder="記事・メール・議事録・投稿などを貼る（または「調べる」の結果から送る）" style="min-height:90px"></textarea>
-   <div class="actbar"><button class="small" id="a-set">この文書に問う</button><button class="small" id="a-doc-clear">消す</button><span class="small muted" id="a-doc-info"></span></div>
-   <div class="doc" id="a-view"></div>
-  </div>
-  <div class="card">
-   <h2 style="margin-top:0">聞く <span class="muted small">— はい/いいえ・選択・段階・どの行</span></h2>
-   <div class="note">書き方：<code>? 質問</code>＝はい/いいえ　<code>質問 | A | B</code>＝選択　<code>度合い: 質問</code>＝0〜5　<code>どの行: 内容</code>＝該当する行を指す（該当なし可）。生成はしない。</div>
-   <div class="chips" id="a-quick"></div>
-   <div class="log" id="chat"></div>
-   <div class="qbox" style="margin-top:8px"><textarea id="c-in" rows="1" style="min-height:40px;max-height:120px" placeholder="? 返信が必要か"></textarea><button class="primary" id="c-send" disabled>送る</button></div>
-   <div class="actbar"><button class="small" id="c-clear">履歴を消す</button><button class="small" id="c-save">やり取りを保存</button><span class="small muted" id="c-model"></span></div>
-  </div>
- </div>
-</section>
-
 <!-- ================= もっと ================= -->
 <section id="t-more" class="hidden">
- <div class="subnav" id="subnav-more"><button data-t="tools">🧰 ツール</button><button data-t="connect">🔗 連携</button><button data-t="labverify">🔬 検証</button><button data-t="batch">📊 評価</button><button data-t="improve">🛠 学習</button><button data-t="viz">🔭 可視化</button><button data-t="notes">📓 ノート</button><button data-t="models">📦 モデル</button><button data-t="settings">⚙️ 設定</button></div>
+ <div class="subnav" id="subnav-more"><button data-t="how">🧩 仕組み</button><button data-t="labverify">🔬 検証</button><button data-t="batch">📊 評価</button><button data-t="improve">🛠 学習</button><button data-t="viz">🔭 可視化</button><button data-t="notes">📓 ノート</button><button data-t="models">📦 モデル</button><button data-t="settings">⚙️ 設定</button></div>
  <div class="tiles" id="more-tiles"></div>
 </section>
-<section id="t-tools" class="hidden">
-<div class="card"><p class="hint">検索式の自動生成、OSINT Framework のツール集（対象を入れるとリンクが全部できる）、端末内で動く解析ツール。ファイルは送信しない。</p>
-<div class="chips" id="tool-nav"></div></div>
-<div class="card tool" id="tool-dork"><h2>🔍 Google dorks 自動生成</h2><p class="muted small">キーワード（または対象）を入れるだけで、用途別の検索式をすべて作る。コピーして貼るか、ボタンで各エンジンを開く。演算子を自分で入力する必要はない（自分で組む場合は下の「手動で組む」）。</p>
-<div class="qbox"><input id="g-q" placeholder="例: 津市 大雨 ／ 〇〇株式会社 ／ jma.go.jp"><button class="primary" id="g-run">式を生成</button></div>
-<div id="g-composer"></div>
-<div id="g-out"></div>
-<details><summary class="small">手動で組む（演算子を指定）</summary>
-<div class="row"><div><label>用途別ライブラリ（{q} は下のキーワード、{d} はドメイン）</label><select id="d-lib"><option value="">— 選ぶと式が入る —</option></select><label>キーワード／対象</label><input id="d-q" placeholder="例: 避難所 開設状況 ／ city.tsu.lg.jp"></div>
-<div><div class="row"><div><label>site:</label><input id="d-site" placeholder="city.tsu.lg.jp"></div><div><label>filetype:</label><input id="d-ft" placeholder="pdf"></div><div><label>intitle:</label><input id="d-title"></div><div><label>inurl:</label><input id="d-url"></div><div><label>intext:</label><input id="d-text"></div><div><label>除外語（カンマ）</label><input id="d-ex"></div><div><label>after:</label><input id="d-after" placeholder="YYYY-MM-DD"></div><div><label>before:</label><input id="d-before"></div><div><label>OR グループ（カンマ）</label><input id="d-or" placeholder="氾濫, 冠水"></div><div><label>数値範囲 a..b</label><input id="d-range" placeholder="5..7"></div></div>
-<p><label style="display:inline"><input type="checkbox" id="d-exact" style="width:auto"> 完全一致（"…"）</label></p>
-<details><summary class="small">高度な演算子（allintitle / inanchor / AROUND / related / imagesize / source / loc / ip / contains / lang）</summary><div class="row"><div><label>allintitle:（全語をタイトルに）</label><input id="d-allintitle"></div><div><label>inanchor:（リンク文字列）</label><input id="d-anchor"></div><div><label>AROUND(n)：語 A</label><input id="d-ar-a"></div><div><label>AROUND(n)：語 B と n</label><input id="d-ar-b" placeholder="冠水, 5"></div><div><label>related:（似たサイト）</label><input id="d-related" placeholder="jma.go.jp"></div><div><label>imagesize:（幅x高さ）</label><input id="d-imgsize" placeholder="1920x1080"></div><div><label>source:（Google ニュースの媒体）</label><input id="d-source" placeholder="nhk"></div><div><label>loc: / lang:（Bing / Yandex）</label><input id="d-loc" placeholder="JP / ja"></div><div><label>ip:（Bing、同一 IP のサイト）</label><input id="d-ip"></div><div><label>contains:（Bing、指定形式へのリンク）</label><input id="d-contains" placeholder="pdf"></div></div></details></div></div>
-<p><label>式（直接編集できる）</label><textarea id="d-expr" style="min-height:44px;font-family:monospace"></textarea></p>
-<div class="actbar"><button class="primary" id="d-build">組み立てる</button><button id="d-open">各エンジンで開く</button><button class="small" id="d-copy">コピー</button></div><div id="d-out"></div>
-<details><summary class="small">演算子一覧（Google / Bing / DuckDuckGo / Yandex）</summary><div class="tw" id="d-ops"></div></details></details></div>
-<div class="card tool" id="tool-fw"><h2>🗂 OSINT Framework ツール集（対象を入れるとリンクが全部できる）</h2><p class="muted small">カテゴリごとに「自動（このアプリが API で実行）／端末内／リンク（対象を埋め込んだ URL）」を並べる。人物検索・出会い系・ダークウェブ・テロ・クラシファイドは扱わない。</p>
-<div class="qbox"><input id="fw-q" placeholder="対象（ドメイン・キーワード・IP・メール・@ユーザー名・座標…）"><button class="primary" id="fw-run">リンクを作る</button></div><div id="fw-out"></div></div>
-<div class="card tool" id="tool-image"><h2>🖼 画像：EXIF / GPS・ELA（改ざん痕）・逆画像検索</h2><p class="muted small">自分の端末の画像を<b>端末内で</b>読む。SNS 経由の画像は通常 EXIF が消えている＝残っていれば一次投稿の可能性。ELA は再圧縮の差分で編集領域を浮かび上がらせる（FotoForensics と同じ原理、断定はしない）。</p>
-<input type="file" id="t-exif" accept="image/*"><div id="t-exif-out"></div><canvas id="t-ela" class="hidden" style="max-width:100%"></canvas>
-<div class="qbox" style="margin-top:8px"><input id="t-img" placeholder="画像 URL → 逆画像検索（Google Lens / Bing / Yandex / TinEye）"><button id="t-img-run">リンクを作る</button></div><div id="t-img-out"></div></div>
-<div class="card tool" id="tool-doc"><h2>📄 文書メタデータ（PDF / Word / Excel / PowerPoint）</h2><p class="muted small">FOCA / Metagoofil 相当。作成者・最終更新者・作成ソフト・編集時間を端末内で読む。公開前の自分の文書の点検にも。</p><input type="file" id="t-doc" accept=".pdf,.docx,.xlsx,.pptx"><div id="t-doc-out"></div></div>
-<div class="card tool" id="tool-codec"><h2>🔣 変換（CyberChef 相当）・文字列の種類判定</h2><div class="row"><div><label>入力</label><textarea id="c-input" style="min-height:70px"></textarea><label>操作</label><select id="c-op"></select><p><button class="primary" id="c-run">変換</button> <button id="c-ident">種類を判定</button> <button id="c-hash">SHA-256 / SHA-1</button></p></div><div><label>出力</label><textarea id="c-output" style="min-height:70px;font-family:monospace"></textarea><div id="c-note" class="small muted"></div></div></div></div>
-<div class="card tool" id="tool-file"><h2>🧪 ファイルのハッシュ → VirusTotal / MalwareBazaar で検索</h2><p class="muted small">ファイルは<b>送信しない</b>。端末内で SHA-256 を計算し、そのハッシュで公開データベースを検索する（既知のファイルなら結果が見られる）。証拠ファイルの同一性確認にも。</p><input type="file" id="t-file"><div id="t-file-out"></div></div>
-<div class="card tool" id="tool-phone"><h2>☎️ 電話番号の書式・種別（端末内）</h2><p class="muted small">携帯 / IP 電話（050）/ フリーダイヤル / 固定（市外局番）を判定。持ち主の特定はしない。</p><div class="qbox"><input id="ph-q" placeholder="059-xxx-xxxx / +81 90 …"><button class="primary" id="ph-run">判定</button></div><div id="ph-out"></div></div>
-<div class="card tool" id="tool-opsec"><h2>🛡 OpSec：ブラウザの露出情報／パスワード漏えい確認</h2><p class="muted small">「調べる側」が特定されないための自己点検。何も送信しない（パスワードは SHA-1 の先頭 5 文字だけを送る k-匿名性方式）。</p><p><button id="fp-run">このブラウザが相手に見せている情報</button></p><div id="fp-out" class="kv"></div><div class="qbox" style="margin-top:8px"><input id="pw-q" type="password" placeholder="自分のパスワード（端末内でハッシュ化）"><button id="pw-run">漏えい確認</button></div><div id="pw-out"></div></div>
-<div class="card tool" id="tool-learn"><h2>📚 学ぶ・証拠保全・関連ツール</h2><div id="learn-links"></div></div>
-</section>
+
 <section id="t-notes" class="hidden">
 <div class="card">
 <p class="hint">この端末の実験記録（IndexedDB）。卒論の表は「卒論用の表」か CSV から。</p>
@@ -172,32 +129,14 @@
 <div id="n-list" class="tw"></div>
 </div>
 </section>
-<section id="t-connect" class="hidden">
-<div id="cw"></div>
-<div class="card"><h2 style="margin-top:0">つなぎ方（4 方式の中で採用したもの）</h2><div class="tw"><table class="cmp"><tr><th>方式</th><th>採用</th><th>誰でも・スマホで</th><th>ここでの形</th></tr><tr><td>④ 共有メニュー／URL 起動</td><td>◎ 主軸</td><td>スマホ ◎・PC ○</td><td>Android の共有→JEV Lab、iOS ショートカット、ブックマークレット、URL パラメータ（下）</td></tr><tr><td>① ブラウザ拡張（画面上に追加）</td><td>◎ PC</td><td>PC ○（Chrome/Edge に読み込むだけ）</td><td>右クリック「JEV で判断／調査／収集」→ サイドパネル。<a href="extension.zip">extension.zip</a>（入れ方は中の README）</td></tr><tr><td>③ ノーコード連携（Zapier / Make / n8n）</td><td>○ 裏で流す</td><td>スマホ ○</td><td>既存アプリ → Google シートに書く → 下の「シート取り込み」＋「監視」で JEV が自動仕分け（無料枠で足りる）</td></tr><tr><td>② iframe 埋め込み</td><td>✕</td><td>—</td><td>X・Gmail 等は iframe を拒否するため不採用（逆に JEV Lab 側は埋め込み可：拡張のサイドパネルがそれ）</td></tr></table></div>
-<p class="hint">JEV の役割：届いた文章を<b>その場で・端末内で</b>「種類／緊急度／具体性／拡散依頼／根拠との整合」に仕分け、要確認だけを残す。生成しないので誤情報を作らず、確率が出るので「自動採用／人手確認／除外」のしきい値運用ができる。認証情報はこの端末の中にだけ保存し、各サービス以外には送らない。</p></div>
-<div class="card"><h2>👁 監視（定点観測）</h2><p class="small">一定間隔で取り込み直し、<b>新しく「要確認」になった投稿</b>だけを通知する（ブラウザ通知）。タブを開いたままにする。</p>
-<div class="grid3"><div><label>取り込み元</label><select id="watch-src"><option value="queries">保存した検索（履歴）</option><option value="bsky-home">Bluesky ホーム</option><option value="bsky-notif">Bluesky 通知</option><option value="masto-home">Mastodon ホーム</option><option value="sheet">スプレッドシート（上の URL）</option></select></div><div><label>間隔（分）</label><input id="watch-min" value="10"></div><div><label>&nbsp;</label><button class="primary" id="watch-toggle">監視を開始</button></div></div><div id="watch-out" class="small muted"></div></div>
-<div class="row">
-<div class="card"><h2>📲 共有メニューから受け取る</h2>
-<p class="small"><b>Android</b>：このサイトを「ホーム画面に追加」すると、X・LINE・ブラウザなどの<b>共有</b>に「JEV Lab」が出る。共有した文章がそのまま「判断」に入る。</p>
-<p class="small"><b>iPhone</b>：「ショートカット」アプリ → 新規 → 「共有シートに表示」をオン → アクション「URL を開く」に <code id="ios-url"></code> を入れ、末尾に「ショートカットの入力」を挿入。共有シートから呼べる。</p>
-<p class="small"><b>PC のブラウザ</b>：下のブックマークレットをブックマークバーへドラッグ（またはブックマークの URL に貼る）。ページで文章を選択してクリックすると JEV に送られる。</p>
-<p><a id="bm-link" href="#" onclick="return false" class="chip">⚖️ JEV で判断</a> <button class="small" id="bm-copy">コピー</button></p>
-<p class="small"><b>他のアプリ・フォームから</b>：URL に付けるだけ。<code id="url-ex"></code>（<code>q=</code> で収集、<code>target=</code> で調査、<code>tmpl=</code> でテンプレ、<code>run=1</code> で自動実行）</p></div>
-<div class="card"><h2>🦋 Bluesky（自分のタイムライン・通知を仕分ける）</h2><p class="small">設定 → アプリパスワード で作ったパスワードを使う（本パスワードは使わない）。取り込んだ投稿を「収集」と同じ形で JEV が仕分ける。</p>
-<div id="bsky-out" class="small"></div><div class="row"><div><label>ハンドル</label><input id="bsky-id" placeholder="example.bsky.social"></div><div><label>アプリパスワード</label><input id="bsky-pw" type="password" placeholder="xxxx-xxxx-xxxx-xxxx"></div></div>
-<div class="actbar"><button class="primary" id="bsky-login">ログイン</button><button id="bsky-home" disabled>ホームを取り込む</button><button id="bsky-notif" disabled>通知を取り込む</button><button id="bsky-logout" class="small">ログアウト</button></div></div>
-<div class="card"><h2>🐘 Mastodon（ホーム・通知）</h2><p class="small">インスタンスの「設定 → 開発 → 新規アプリ」で read 権限のアクセストークンを作る。</p>
-<div id="masto-out" class="small"></div><div class="row"><div><label>インスタンス</label><input id="masto-inst" placeholder="mastodon.social"></div><div><label>アクセストークン</label><input id="masto-tok" type="password"></div></div>
-<div class="actbar"><button class="primary" id="masto-save">保存して確認</button><button id="masto-home" disabled>ホームを取り込む</button><button id="masto-notif" disabled>通知を取り込む</button><button id="masto-logout" class="small">削除</button></div></div>
-<div class="card"><h2>📊 Google スプレッドシート / CSV → 一括判断</h2><p class="small">問い合わせフォーム（Google フォームの回答シート）やアンケートを「ファイル → 共有 → ウェブに公開 → CSV」した URL、または CSV ファイル。1 列を選んで「一括判断」に渡す。</p>
-<div class="qbox"><input id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…/pub?output=csv"><button class="primary" id="sheet-load">読み込む</button></div>
-<input type="file" id="sheet-file" accept=".csv,.txt"><div id="sheet-out"></div></div>
-<div class="card"><h2>📤 結果を送る（Discord / Slack / 共有）</h2><p class="small">Webhook URL を保存しておくと、収集の要約や判断結果を「⋯ 送る」から 1 タップで投稿できる。</p>
-<label>Discord Webhook URL</label><input id="wh-discord" placeholder="https://discord.com/api/webhooks/…"><label>Slack Incoming Webhook URL</label><input id="wh-slack" placeholder="https://hooks.slack.com/services/…">
-<div class="actbar"><button class="primary" id="wh-save">保存</button><button id="wh-test">テスト送信</button></div><div id="wh-out" class="small"></div></div>
-</div>
+
+<section id="t-how" class="hidden">
+ <div class="card"><h2 style="margin-top:0">仕組み <span class="muted small">— 何が・どう動いているか。パラメータはここで変えられる（端末内に保存）</span></h2><div id="how-arch"></div></div>
+ <div class="card"><h2 style="margin-top:0">パラメータ</h2><p class="hint">変更は即時に反映（収集し直し不要。信頼性としきい値は表示に即反映）。</p><div id="how-params"></div><div class="actbar"><button class="small" id="how-reset">既定に戻す</button></div></div>
+ <div class="card"><h2 style="margin-top:0">信頼性スコアの式</h2><div class="formula" id="how-formula"></div><div id="how-weights" class="kv small"></div><p class="hint" id="how-formula-note"></p></div>
+ <div class="card"><h2 style="margin-top:0">判定の質問セット <span class="muted small">— モデルに問う文そのもの（JSON で編集可）</span></h2><div id="how-questions"></div></div>
+ <div class="card"><h2 style="margin-top:0">情報源と無料枠 <span class="muted small">— すべて鍵なし・CORS 許可・端末内で回数を数える</span></h2><div id="how-sources" class="tw"></div></div>
+ <div class="card"><h2 style="margin-top:0">モデルの入力形式</h2><div id="how-models" class="tw"></div><p class="hint">数式と詳細は <a href="theory.html">仕組みページ（理論）</a>。</p></div>
 </section>
 <section id="t-labverify" class="hidden">
 <div class="card"><p class="hint">「文章を判断」に入れた文章・根拠・質問を使い、<b>何を変えると出力がどう変わるか</b>を測る。各項目に「良い結果」の目安を書いた。</p>
@@ -269,6 +208,7 @@
 <div class="card">
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
 <p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
+<h2>他のアプリから受け取る</h2><div id="cw"></div><div class="row"><div><p class="small"><b>Android</b>：ホーム画面に追加 → 共有メニューに「JEV Lab」。<b>iPhone</b>：ショートカット「URL を開く」に <code id="ios-url"></code>＋入力。<b>PC</b>：ブックマークレット <a id="bm-link" href="#" onclick="return false" class="chip">⚖️ JEV で判断</a> <button class="small" id="bm-copy">コピー</button>、または <a href="extension.zip">Chrome 拡張</a>（右クリック → JEV で判断／サイドパネル）。</p><p class="small">URL で呼ぶ：<code id="url-ex"></code>（q= 収集、target= 調査、text= 見極める、run=1 自動実行）</p></div><div><p class="small"><b>CSV / スプレッドシート</b>：「仕分ける」のファイル選択で CSV を読む（1 列目を使う）。</p></div></div>
 <h2>公開 API の無料枠（超えない仕組み）</h2><div id="s-quota"></div><p><button id="s-cache-clear">API キャッシュを消す</button> <button id="s-quota-reset">使用回数の記録をリセット</button></p>
 <h2>設定のバックアップ</h2><p><button id="s-backup">質問セット・重み・追加モデル・実験ノートを JSON で保存</button> <input type="file" id="s-restore" accept=".json" style="width:auto"></p>
 <h2>表示</h2><p><label style="display:inline"><input type="checkbox" id="s-dark" style="width:auto"> ダークモード</label> <label style="display:inline"><input type="checkbox" id="s-big" style="width:auto"> 文字を大きく</label></p>
@@ -277,7 +217,7 @@
 </section>
 </main>
 <div id="status2" class="hidden"></div>
-<div class="bottom" id="bottom"><button data-t="search" class="on"><i>🔎</i>調べる</button><button data-t="verify"><i>⚖️</i>見極める</button><button data-t="triage"><i>🗂</i>仕分ける</button><button data-t="ask"><i>💬</i>聞く</button><button data-t="more"><i>⋯</i>もっと</button></div>
+<div class="bottom" id="bottom"><button data-t="search" class="on"><i>🔎</i>調べる</button><button data-t="verify"><i>⚖️</i>見極める</button><button data-t="triage"><i>🗂</i>仕分ける</button><button data-t="more"><i>🔬</i>研究</button></div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

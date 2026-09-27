@@ -1,0 +1,20 @@
+{
+ "name": "verdict_small_e5",
+ "kind": "biencoder",
+ "hf_id": "Manav2op/verdict-small",
+ "backbone": "intfloat/multilingual-e5-small",
+ "language": "multilingual",
+ "license": "Apache-2.0",
+ "query_prefix": "query: ",
+ "passage_prefix": "passage: ",
+ "scale": 20.0,
+ "max_len": 512,
+ "int8": true,
+ "pruned_vocab": true,
+ "trained": true,
+ "note": "verdict-small（Verdict、e5-small 118M を型付き判断で微調整、多言語）。状況と各選択肢を別々に埋め込み cos×20 を logit にする bi-encoder 形。語彙間引き＋int8",
+ "external_data": [
+  "model.onnx_data_0"
+ ],
+ "size_mb": 42.3
+}

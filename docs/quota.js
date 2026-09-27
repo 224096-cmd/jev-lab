@@ -41,7 +41,7 @@ export const LIMITS = {
   usgs: { interval: 1000, day: 300, ttl: 900 }, eonet: { interval: 1000, day: 100, ttl: 1800 }, lemmy: { interval: 1000, day: 300, ttl: 600 },
   qiita: { interval: 1000, hour: 50, ttl: 3600, note: "未認証 60 回/時" }, openalex: { interval: 200, day: 1000, ttl: 6 * 3600, note: "polite pool" }, pubmed: { interval: 400, day: 1000, ttl: 6 * 3600, note: "鍵なし 3 回/秒" },
   europepmc: { interval: 300, day: 1000, ttl: 6 * 3600 }, ia: { interval: 1000, day: 300, ttl: 86400 }, openlibrary: { interval: 1000, day: 300, ttl: 86400 }, gbooks: { interval: 1000, day: 500, ttl: 86400, note: "鍵なし 1,000 回/日" },
-  commons: { interval: 500, day: 500, ttl: 86400 }, jina: { interval: 3500, min: 15, day: 150, ttl: 6 * 3600, note: "Reader API 鍵なし 20 回/分" }, wdq: { interval: 1000, day: 200, ttl: 7 * 86400, note: "Wikidata SPARQL" },
+  commons: { interval: 500, day: 500, ttl: 86400 }, jina: { interval: 3500, min: 12, day: 300, ttl: 6 * 3600, timeout: 40000, note: "Reader API 鍵なし 20 回/分" }, rss2json: { interval: 1000, day: 500, ttl: 900, note: "無料 API" }, wdq: { interval: 1000, day: 200, ttl: 7 * 86400, note: "Wikidata SPARQL" },
 };
 const K = "jev.quota"; const load = () => { try { return JSON.parse(localStorage.getItem(K) || "{}"); } catch { return {}; } }; const save = q => { try { localStorage.setItem(K, JSON.stringify(q)); } catch { } };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -62,11 +62,11 @@ function commit(api, cost, hit) { const q = load(); const s = q[api] || { day: t
 async function waitInterval(api) { const L = LIMITS[api]; if (!L?.interval) return; const t = lastCall[api] || 0; const wait = t + L.interval - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait)); lastCall[api] = Date.now(); }
 
 /* 本体。parse: "json" | "text" | "head"（HEAD で ok だけ）| "buf" */
-export async function apiFetch(api, url, { init, parse = "json", cost = 0, ttl, onProgress } = {}) {
+export async function apiFetch(api, url, { init, parse = "json", cost = 0, ttl, onProgress, timeout } = {}) {
   const L = LIMITS[api] || {}; const T = ttl ?? L.ttl ?? 0; const key = `cache:${api}:${url}`;
   if (T > 0 && parse !== "head") { try { const c = await store.cacheGet(key); if (c && Date.now() - c.t < T * 1000) { commit(api, 0, true); return c.v; } } catch { } }
   check(api, cost); await waitInterval(api);
-  const r = await fetch(url, init); if (parse === "head") { commit(api, cost); return { ok: r.ok, status: r.status }; }
+  const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), timeout || L.timeout || 25000); let r; try { r = await fetch(url, { ...(init || {}), signal: ac.signal }); } catch (e) { clearTimeout(tm); throw new Error(e.name === "AbortError" ? `${api}: 応答なし（${((timeout || L.timeout || 25000) / 1000).toFixed(0)} 秒でタイムアウト）` : e.message); } clearTimeout(tm); if (parse === "head") { commit(api, cost); return { ok: r.ok, status: r.status }; }
   if (!r.ok) { commit(api, cost); throw new Error(`${r.status} ${url.split("?")[0]}`); }
   const v = parse === "json" ? await r.json() : parse === "text" ? await r.text() : await r.arrayBuffer(); commit(api, cost);
   if (T > 0) { try { await store.cachePut(key, { t: Date.now(), v }); } catch { } }
