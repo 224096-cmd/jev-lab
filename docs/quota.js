@@ -37,6 +37,11 @@ export const LIMITS = {
   osm: { interval: 1000, day: 300, ttl: 86400 },
   hn: { interval: 500, day: 1000, ttl: 600 },
   hf: { interval: 1000, day: 300, ttl: 3600 },
+  ddg: { interval: 1000, day: 500, ttl: 86400 }, wikinews: { interval: 500, day: 500, ttl: 3600 }, kokkai: { interval: 1000, day: 300, ttl: 86400 },
+  usgs: { interval: 1000, day: 300, ttl: 900 }, eonet: { interval: 1000, day: 100, ttl: 1800 }, lemmy: { interval: 1000, day: 300, ttl: 600 },
+  qiita: { interval: 1000, hour: 50, ttl: 3600, note: "未認証 60 回/時" }, openalex: { interval: 200, day: 1000, ttl: 6 * 3600, note: "polite pool" }, pubmed: { interval: 400, day: 1000, ttl: 6 * 3600, note: "鍵なし 3 回/秒" },
+  europepmc: { interval: 300, day: 1000, ttl: 6 * 3600 }, ia: { interval: 1000, day: 300, ttl: 86400 }, openlibrary: { interval: 1000, day: 300, ttl: 86400 }, gbooks: { interval: 1000, day: 500, ttl: 86400, note: "鍵なし 1,000 回/日" },
+  commons: { interval: 500, day: 500, ttl: 86400 }, jina: { interval: 3500, min: 15, day: 150, ttl: 6 * 3600, note: "Reader API 鍵なし 20 回/分" }, wdq: { interval: 1000, day: 200, ttl: 7 * 86400, note: "Wikidata SPARQL" },
 };
 const K = "jev.quota"; const load = () => { try { return JSON.parse(localStorage.getItem(K) || "{}"); } catch { return {}; } }; const save = q => { try { localStorage.setItem(K, JSON.stringify(q)); } catch { } };
 const today = () => new Date().toISOString().slice(0, 10);

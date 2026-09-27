@@ -33,7 +33,7 @@
   <p>公開情報を集めて、端末内の判断モデル（Jev 級）が 1 件ずつ「種類・具体性・拡散依頼・根拠との整合」を確率つきで答える。生成しないので嘘を作らず、確信度で「自動／人が確認」に分けられる。<span id="h-stats"></span></p>
  </div>
  <div class="ask">
-  <textarea id="u-q" rows="1" placeholder="話題（例: 津市 大雨）／URL・ドメイン・IP・@ユーザー名／投稿やメールの本文を貼る"></textarea>
+  <textarea id="u-q" rows="1" placeholder="話題（例: 津市 大雨）／サイトの URL（分析・要点・類似サイト）／IP・@ユーザー名／投稿やメールの本文を貼る"></textarea>
   <div class="sug hidden" id="o-sug"></div>
   <div class="foot"><div class="seg" id="u-modes"><button data-m="auto" class="on">自動</button><button data-m="topic">話題</button><button data-m="target">対象</button><button data-m="text">文章</button></div><span class="small muted" id="u-detected"></span><span class="sp"></span><button class="small" id="u-clear">消す</button><button class="primary" id="u-run">調べる</button></div>
  </div>
@@ -56,7 +56,7 @@
    <div id="u-tools"></div>
    <details class="card" id="o-settings"><summary class="small b">収集の設定</summary>
     <label>情報源（自動で選択。変えると固定）</label><div class="chips" id="o-src"></div>
-    <div class="grid3"><div><label>件数/情報源</label><select id="o-limit"><option>5</option><option>10</option><option>20</option></select></div><div><label>言語</label><select id="o-lang"><option value="ja">日本語</option><option value="en">英語</option></select></div><div><label>気象庁の都道府県</label><select id="o-pref"><option value="240000">三重</option><option value="230000">愛知</option><option value="130000">東京</option><option value="270000">大阪</option><option value="010000">北海道</option><option value="400000">福岡</option></select></div></div>
+    <div class="grid3"><div><label>件数/情報源</label><select id="o-limit"><option>5</option><option>10</option><option>20</option></select></div><div><label>言語</label><select id="o-lang"><option value="ja">日本語</option><option value="en">英語</option></select></div><div><label>地域（防災情報用）</label><select id="o-pref"><option value="240000">三重</option><option value="230000">愛知</option><option value="130000">東京</option><option value="270000">大阪</option><option value="010000">北海道</option><option value="400000">福岡</option></select></div></div>
     <label>根拠（context）— 公的発表・地理情報。整合の判定に使う</label><textarea id="o-ctx" style="min-height:60px"></textarea>
     <p class="small"><label class="inl"><input type="checkbox" id="o-auto" checked> 届いた分から JEV が判定</label><label class="inl"><input type="checkbox" id="o-geo" checked> 地理照合</label><label class="inl"><input type="checkbox" id="o-cluster"> 類似投稿をまとめる（JEV-JA）</label><input id="o-th" type="hidden" value="0.9"></p>
     <label>信頼性の重み</label><div class="kv small" id="o-w"></div>
@@ -173,6 +173,7 @@
 </div>
 </section>
 <section id="t-connect" class="hidden">
+<div id="cw"></div>
 <div class="card"><h2 style="margin-top:0">つなぎ方（4 方式の中で採用したもの）</h2><div class="tw"><table class="cmp"><tr><th>方式</th><th>採用</th><th>誰でも・スマホで</th><th>ここでの形</th></tr><tr><td>④ 共有メニュー／URL 起動</td><td>◎ 主軸</td><td>スマホ ◎・PC ○</td><td>Android の共有→JEV Lab、iOS ショートカット、ブックマークレット、URL パラメータ（下）</td></tr><tr><td>① ブラウザ拡張（画面上に追加）</td><td>◎ PC</td><td>PC ○（Chrome/Edge に読み込むだけ）</td><td>右クリック「JEV で判断／調査／収集」→ サイドパネル。<a href="extension.zip">extension.zip</a>（入れ方は中の README）</td></tr><tr><td>③ ノーコード連携（Zapier / Make / n8n）</td><td>○ 裏で流す</td><td>スマホ ○</td><td>既存アプリ → Google シートに書く → 下の「シート取り込み」＋「監視」で JEV が自動仕分け（無料枠で足りる）</td></tr><tr><td>② iframe 埋め込み</td><td>✕</td><td>—</td><td>X・Gmail 等は iframe を拒否するため不採用（逆に JEV Lab 側は埋め込み可：拡張のサイドパネルがそれ）</td></tr></table></div>
 <p class="hint">JEV の役割：届いた文章を<b>その場で・端末内で</b>「種類／緊急度／具体性／拡散依頼／根拠との整合」に仕分け、要確認だけを残す。生成しないので誤情報を作らず、確率が出るので「自動採用／人手確認／除外」のしきい値運用ができる。認証情報はこの端末の中にだけ保存し、各サービス以外には送らない。</p></div>
 <div class="card"><h2>👁 監視（定点観測）</h2><p class="small">一定間隔で取り込み直し、<b>新しく「要確認」になった投稿</b>だけを通知する（ブラウザ通知）。タブを開いたままにする。</p>

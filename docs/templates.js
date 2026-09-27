@@ -88,7 +88,7 @@ export const OSINT_PRESETS = [
   { id: "jev", name: "Jev / 型付き判断モデルの最新動向", query: "Jev typed decision model, open-jev, typed-decisions", sources: ["hn", "github", "arxiv", "crossref", "bluesky", "mastodon"], lang: "en", desc: "TypeSafe Jev、open-jev、Laya、GLiNER2 など「生成しない判断モデル」の話題。種類（発表/報道/投稿/意見）と具体性で仕分ける。関連研究の更新に。" },
   { id: "ai_jp", name: "AI（日本語圏：規制・教育・製品）", query: "生成AI 規制, AI 教育 学校, 小型言語モデル", sources: ["bluesky", "gdelt", "wikipedia", "wikidata"], lang: "ja", desc: "日本語の AI 関連ニュースと投稿。公的発表（総務省・文科省）と意見を分ける練習に。" },
   { id: "ai_ondevice", name: "端末内推論（ONNX / WebGPU / 小型モデル）", query: "onnx runtime web webgpu, small language model on-device", sources: ["hn", "gdelt"], lang: "en", desc: "本ラボの技術基盤に関する技術系ニュース。" },
-  { id: "disaster", name: "災害（気象庁＋地域名）", query: "津市 大雨", sources: ["jma", "wikipedia", "nominatim", "bluesky"], lang: "ja", desc: "公的発表（気象庁）と一般投稿を地理照合つきで並べる。" },
+  { id: "disaster", name: "災害（地域名）", query: "津市 大雨", sources: ["jma", "usgs", "wikipedia", "nominatim", "bluesky"], lang: "ja", desc: "公的な防災情報と一般投稿を地理照合つきで並べる。" },
   { id: "factcheck", name: "噂の検証（地名・施設名で）", query: "美杉小学校 津波", sources: ["wikipedia", "wikidata", "nominatim", "bluesky"], lang: "ja", desc: "地名→座標→標高と Wikipedia の基礎情報を根拠にして、投稿の物理的整合を判定する。" },
   { id: "paper", name: "論文サーベイ（arXiv・Crossref・Semantic Scholar）", query: "typed decisions calibrated classification", sources: ["arxiv", "crossref", "semanticscholar", "github"], lang: "en", desc: "卒論の関連研究用。論文・コードを一次情報として集め、JEV で関連度と種類を仕分ける。" },
   { id: "edu", name: "教育・技術科（学習指導要領・ICT）", query: "技術科 プログラミング教育, 情報モラル 授業", sources: ["gdelt", "bluesky", "wikipedia"], lang: "ja", desc: "教材研究用。報道と現場の声を分ける。" },

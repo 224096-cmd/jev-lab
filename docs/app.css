@@ -85,3 +85,5 @@ main{max-width:1180px;margin:0 auto;padding:14px 14px 90px}
 mark{background:#fff3c4;color:#1a1d21;padding:0 1px;border-radius:2px}
 canvas{max-width:100%;height:auto}
 #status2{display:none}@media(max-width:820px){#status2{display:block;position:fixed;left:8px;right:8px;bottom:64px;z-index:19;background:var(--fg);color:var(--bg);font-size:12px;padding:4px 10px;border-radius:999px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:.9}#status2.hidden{display:none}}
+.srcgrp{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0}.srcgrp>span{min-width:64px}
+@media(max-width:640px){.res{grid-template-columns:42px 1fr;padding:10px 12px}.res .ring{width:42px!important;height:42px!important}.res .ring b{font-size:13px}.res .act button{padding:3px 8px}.hero{padding:14px 0 6px}.hero h1{font-size:21px}.hero p{font-size:13px}.stats .stat{flex:1 1 44%}}
