@@ -315,6 +315,19 @@ Mastodon（タグの公開タイムライン）、Stack Exchange、GitHub リポ
 - **内蔵リーダー**：段落を押すとその段落だけを JEV が判定（種類・具体性・拡散依頼・緊急度・個人情報の要求・なりすまし）。上部に「他サイトでの言及／同サイト内／類似サイト／このタイトルで収集／サイト分析」の追加検索チップ。
 - 取り込んだ結果も本文を読んで判定し直す（`doJudge` → `deepRead`）。
 
+## 4-13. v3.2：モデルを Hugging Face から取得
+
+GitHub Pages は gzip とファイル上限（100 MB）と速度の面でモデル配布に向かないため、**変換済みモデル 6 つを Hugging Face のモデルリポジトリに置き、そこから取得する**方式に変えた（`jev.js` の `modelBases`：HF → 取れなければ Pages の `./models/` に自動で切り替え）。HF は CORS 許可・Content-Length 正確・CDN 配信。
+
+置き方（1 回だけ、PC）：
+```powershell
+pip install -U huggingface_hub
+huggingface-cli login            # HF の Write トークンを貼る（トークンはリポジトリに書かない）
+huggingface-cli repo create jev-lab-models --type model
+huggingface-cli upload <HFユーザー名>/jev-lab-models docs/models . --repo-type model --exclude "index.json" "registry.json"
+```
+その後 `docs/models/index.json` の `"hf_repo"` に `<HFユーザー名>/jev-lab-models` を書いて push（利用者側は設定画面でも上書きできる）。GitHub 側の `docs/models/<name>/` は残しておけば予備の取得元になる（消して軽くしてもよい）。
+
 ## 4''. 判断ヘッド v2 と「改良の仕組み」
 
 学習ログの精査で、**ヘッドの入力（ModernBERT-Ja の隠れ状態、|u|≈85）が正規化されておらず tanh が飽和して全選択肢に同じ logit を出していた**ことを確認した（pre-activation ≈117、logit の標準偏差 1e-7）。v0.4 でヘッドに LayerNorm を入れ（`DecisionHead(norm=True)`）、エンコーダ固定でヘッドだけを高速に学習する `train_head.py` を追加した（ベクトルをキャッシュし 1 epoch 数秒）。

@@ -206,6 +206,7 @@
 </section>
 <section id="t-settings" class="hidden">
 <div class="card">
+<h2>モデルの取得元（Hugging Face）</h2><p class="hint">モデルは Hugging Face のリポジトリから取得し、端末内に保存する（GitHub Pages より大容量・高速・確実）。<code>docs/models/</code> の各フォルダを HF のモデルリポジトリにそのままアップロードし、そのリポジトリ名を入れる。空なら GitHub Pages の <code>./models/</code> から取得。</p><div class="qbox"><input id="s-hf" placeholder="例: your-name/jev-lab-models"><button class="primary" id="s-hf-save">保存</button></div><p class="small" id="s-hf-state"></p>
 <h2>端末内に保存されたモデル</h2><div id="s-models" class="muted">…</div>
 <p><button id="s-persist">永続化を要求</button> <button id="s-clear">保存したモデルをすべて削除</button> <button id="s-update">サイトを最新版に更新</button></p>
 <h2>他のアプリから受け取る</h2><div id="cw"></div><div class="row"><div><p class="small"><b>Android</b>：ホーム画面に追加 → 共有メニューに「JEV Lab」。<b>iPhone</b>：ショートカット「URL を開く」に <code id="ios-url"></code>＋入力。<b>PC</b>：ブックマークレット <a id="bm-link" href="#" onclick="return false" class="chip">⚖️ JEV で判断</a> <button class="small" id="bm-copy">コピー</button>、または <a href="extension.zip">Chrome 拡張</a>（右クリック → JEV で判断／サイドパネル）。</p><p class="small">URL で呼ぶ：<code id="url-ex"></code>（q= 収集、target= 調査、text= 見極める、run=1 自動実行）</p></div><div><p class="small"><b>CSV / スプレッドシート</b>：「仕分ける」のファイル選択で CSV を読む（1 列目を使う）。</p></div></div>

@@ -1,5 +1,5 @@
 /* アプリ本体・CDN ライブラリ・読み込んだモデルをキャッシュし、機内モードでも play.html が動くようにする */
-const APP = "jev-lab-app-v19", LIB = "jev-lab-lib-v19", MODELS = "jev-lab-models-v19";
+const APP = "jev-lab-app-v20", LIB = "jev-lab-lib-v20", MODELS = "jev-lab-models-v20";
 const SHELL = ["./", "./index.html", "./play.html", "./jev.js", "./app.js", "./lab.js", "./ui.js", "./presets.js", "./extras.js", "./sources_more.js", "./params.js", "./app.css", "./templates.js", "./osint.js", "./tools.js", "./recon.js", "./quota.js", "./connect.js", "./suggest.js", "./bench/index.json", "./bench/jevbench_ja_small.jsonl", "./bench/survey_example.jsonl", "./theory.html", "./models/registry.json", "./bench/sample_ja.jsonl", "./style.css", "./manifest.json", "./icon.svg", "./models/index.json", "./results/index.json"];
 // 端末内推論に必要な CDN ファイル（play.html が実際に読む 4 つ）。install 時に先読みしておく
 const CDN = [

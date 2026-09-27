@@ -1,5 +1,5 @@
 /* JEV Lab v2.0 — 本体（調べる／見極める／仕分ける／聞く）。研究向け機能は lab.js */
-import { JevJa, store, isStored, storedBytes, softmax, clusterByCos, listAllModels, loadModelByName } from "./jev.js";
+import { JevJa, store, isStored, storedBytes, softmax, clusterByCos, listAllModels, loadModelByName, hfRepo, setHfRepo } from "./jev.js";
 import { TEMPLATES, OSINT_PRESETS, QUICK_QUESTIONS } from "./templates.js";
 import { SOURCES, OSINT_QUESTIONS, collect, evidencePack, geoContext, trustScore, TRUST_WEIGHTS_DEFAULT, markdownReport } from "./osint.js";
 import { domainOf, DORK_LIBRARY, buildFromLibrary } from "./tools.js";
@@ -324,6 +324,7 @@ setQuestions([]); refreshQSets(); $("#ver").textContent = VERSION; initLab();
 await loadIndex(); storageInfo();
 try { const lastM = localStorage.getItem("jev.lastModel"); const pref = isMobile ? ["jev_ja_30m", "jevlet_33m"] : ((navigator.deviceMemory || 8) >= 8 ? ["jev_ja_310m_argos", "openjev_base_60m", "jev_ja_30m"] : ["openjev_base_60m", "jev_ja_30m"]); if (lastM && models.some(m => m.name === lastM)) $("#model").value = lastM; else { const d = pref.find(n => models.some(m => m.name === n)); if (d) $("#model").value = d; } $("#model").onchange(); } catch { }
 $("#s-recommend").onclick = () => { localStorage.removeItem("jev.lastModel"); location.reload(); };
+$("#s-hf").value = hfRepo() || ""; const hfState = () => { $("#s-hf-state").innerHTML = hfRepo() ? `取得元: <a href="https://huggingface.co/${esc(hfRepo())}" target="_blank" rel="noopener">huggingface.co/${esc(hfRepo())}</a>（取れないときは GitHub Pages に切り替え）` : "取得元: GitHub Pages の ./models/（HF 未設定）"; }; hfState(); $("#s-hf-save").onclick = () => { setHfRepo($("#s-hf").value); hfState(); toast("保存しました。次の読み込みから HF を使います"); };
 showTab("search"); $("#p-set").onchange();
 await handleIncoming();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(() => setTimeout(offlineCheck, 800));

@@ -35,21 +35,28 @@ async function fetchBuf(url, onProgress, tries = 3) {
   for (let t = 1; t <= tries; t++) {
     try {
       const r = await fetch(url, { cache: t === 1 ? "default" : "reload" }); if (!r.ok) throw new Error(`HTTP ${r.status}: ${url.split("/").slice(-2).join("/")}`);
-      /* GitHub Pages は gzip で返すので Content-Length は圧縮後のサイズ。長さ検証は非圧縮のときだけ行う（v3.1 修正：ここで全モデルが「途中で切れた」扱いになっていた） */
-      const enc = (r.headers.get("content-encoding") || "").toLowerCase(); const total = (!enc || enc === "identity") ? (+r.headers.get("content-length") || 0) : 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
+      /* GitHub Pages は gzip で返すので Content-Length は圧縮後のサイズになり、受信バイト数と一致しない。長さでは検証せず、空でないこと＋中身（JSON / ONNX）で検証する（v3.1 修正） */
+      const total = 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
       for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onProgress?.(got, total); }
-      if (total && got < total) throw new Error(`ダウンロードが途中で切れました（${got}/${total} bytes）`);
+      if (!got) throw new Error("0 byte の応答");
       const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out.buffer;
     } catch (e) { lastErr = e; if (t < tries) { onProgress?.(0, 0, `再試行 ${t}/${tries - 1}: ${e.message}`); await new Promise(r => setTimeout(r, 1500 * t)); } }
   }
   throw lastErr;
 }
 /* IndexedDB に無ければ取得して保存（完全に取れたものだけ保存）。壊れたキャッシュ（0 byte）は捨てる */
+/* モデルの置き場所（v3.2）：既定は Hugging Face の配布リポジトリ（models/index.json の hf_repo、設定で上書き可）。取れなければ GitHub Pages の ./models/ に切り替える。
+   HF は CORS 許可・Content-Length 正確・大容量向きで、GitHub Pages の gzip 問題や 100 MB 制限を受けない */
+let HF_REPO = null; export function setHfRepo(r) { HF_REPO = (r || "").trim() || null; try { if (HF_REPO) localStorage.setItem("jev.hfrepo", HF_REPO); else localStorage.removeItem("jev.hfrepo"); } catch { } }
+export function hfRepo() { if (HF_REPO) return HF_REPO; try { const s = localStorage.getItem("jev.hfrepo"); if (s) return s; } catch { } return HF_REPO; }
+export function modelBases(name, localBase) { const r = hfRepo(); const bases = []; if (r) bases.push(`https://huggingface.co/${r}/resolve/main/${name}/`); bases.push(localBase); return bases; }
 export async function getModelFile(name, f, base, onProgress) {
   const key = `${name}/${f}`; let b = null; try { b = await store.get(key); } catch { }
   if (b && b.byteLength > 0) { onProgress(`${f} を端末内ストレージから読込`); return b; }
-  b = await fetchBuf(base + f, (got, total, msg) => onProgress(msg || `${f} をダウンロード中 ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`));
+  let lastErr = null; for (const bs of modelBases(name, base)) { const where = /huggingface/.test(bs) ? "HF" : "Pages"; try { b = await fetchBuf(bs + f, (got, total, msg) => onProgress(msg || `${f} を ${where} からダウンロード中 ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`), /huggingface/.test(bs) ? 2 : 3); lastErr = null; break; } catch (e) { lastErr = e; onProgress(`${where} から取れず（${e.message.slice(0, 60)}）。次の置き場所を試します`); } } if (lastErr) throw lastErr;
   if (!b.byteLength) throw new Error(`${f} が空です（配置ミスか未 push）`);
+  if (/\.json$/.test(f)) { try { JSON.parse(new TextDecoder().decode(b)); } catch { throw new Error(`${f} が壊れています（JSON として読めない。途中で切れた可能性、再試行してください）`); } }
+  if (/\.onnx$/.test(f) && b.byteLength < 64) throw new Error(`${f} が小さすぎます（${b.byteLength} bytes）`);
   try { await store.put(key, b); } catch (e) { onProgress(`${f}: 端末内に保存できず（容量不足？）。今回だけメモリで使用`); }
   return b;
 }
@@ -420,7 +427,7 @@ export async function isStoredAny(name, files) { const ks = new Set(await store.
 /* registry + index からモデル一覧を作り、名前でロードする */
 export async function listAllModels() {
   const out = [];
-  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "jev_ja" || !m.kind ? "自作 JEV-JA（日本語・学習可）" : (m.language === "ja" ? "既存 Jev（日本語）" : /multi/.test(m.language || "") ? "既存 Jev（多言語）" : "既存 Jev（英語）") }); } catch { }
+  try { const idx = await (await fetch(new URL("./models/index.json", import.meta.url))).json(); if (idx.hf_repo && !hfRepo()) HF_REPO = idx.hf_repo; for (const m of idx.models) out.push({ ...m, kind: m.kind || "jev_ja", group: m.kind === "jev_ja" || !m.kind ? "自作 JEV-JA（日本語・学習可）" : (m.language === "ja" ? "既存 Jev（日本語）" : /multi/.test(m.language || "") ? "既存 Jev（多言語）" : "既存 Jev（英語）") }); } catch { }
   try { const reg = await (await fetch(new URL("./models/registry.json", import.meta.url))).json(); for (const m of reg.models) out.push({ ...m, group: m.group || "既存 Jev（HF から取得）" }); } catch { }
   try { const custom = await store.get("registry:custom"); if (custom) for (const m of custom) out.push({ ...m, group: "追加したモデル（この端末）" }); } catch { }
   return out;

@@ -56,5 +56,7 @@
       "license": "Apache-2.0",
       "note": "verdict-small（2026-09）。多言語 e5-small を型付き判断で微調整した bi-encoder。語彙 250k→50k 間引き＋int8 で 42 MB（＋tokenizer 17 MB）。軽くて速い。日本語可"
     }
-  ]
+  ],
+  "hf_repo": "mie-edu/jev-lab-models",
+  "_hf_note": "モデルの配布元 Hugging Face リポジトリ（例: user/jev-lab-models）。docs/models/ の各フォルダをそのままアップロードする。空なら GitHub Pages の ./models/ から取得"
 }
