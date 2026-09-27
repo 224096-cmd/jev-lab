@@ -14,7 +14,7 @@
       "backbone": "argos1111/modernbert-ja-310m-jev",
       "language": "ja",
       "license": "CC BY-SA 4.0",
-      "note": "既存の日本語 Jev（ModernBERT-Ja-310m cross-encoder、JGLUE 等で検証精度 0.90）。int8 316MB、PC ブラウザ向け"
+      "note": "既存の日本語 Jev（310M、JGLUE で検証精度 0.90）。int8 316 MB、PC ブラウザ向け（大）"
     },
     {
       "name": "laya_multi_322m",
@@ -24,7 +24,7 @@
       "backbone": "convaiinnovations/laya-multilingual",
       "language": "multilingual",
       "license": "Apache-2.0",
-      "note": "Laya（Convai Innovations、HF ❤3.8k）。[MASK] 位置の 1 logit を選択肢ごとに読む Jev 級。100+ 言語、context 1024。PC ブラウザ向け"
+      "note": "Laya multilingual int8 323 MB（大、PC ブラウザ向け）。精度重視ならこちら"
     },
     {
       "name": "jevlet_33m",
@@ -35,6 +35,26 @@
       "language": "en",
       "license": "MIT",
       "note": "Jevlet v6（bge-small 33.5M、英語）。共有 state＋質問分岐を 1 系列に詰め、[DECIDE] と各選択肢の pointer head で決める。自作 30m と同規模の既存 Jev。スマホ可"
+    },
+    {
+      "name": "openjev_base_60m",
+      "kind": "crossenc",
+      "size_mb": 92.2,
+      "trained": true,
+      "backbone": "sshalimov04/open-jev-base/student",
+      "language": "multi",
+      "license": "MIT",
+      "note": "open-jev-base（mmBERT-small、Jev 1.13 を教師に蒸留）。語彙間引き＋int8 で 58 MB（＋tokenizer 34 MB）。スマホ可"
+    },
+    {
+      "name": "laya_multi_q4",
+      "kind": "laya",
+      "size_mb": 91.5,
+      "trained": true,
+      "backbone": "convaiinnovations/laya-multilingual",
+      "language": "multilingual",
+      "license": "Apache-2.0",
+      "note": "Laya multilingual を語彙間引き＋4 bit で 92 MB（＋tokenizer 34 MB）。PC 向け、強いスマホでも可。確率は 322m 版より粗い"
     }
   ]
 }

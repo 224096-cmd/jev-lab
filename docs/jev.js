@@ -30,12 +30,34 @@ export const store = {
 
 const FILES = ["config.json", "tokenizer.json", "tokenizer_config.json", "head.onnx", "head.bin", "encoder.onnx"];
 
-async function fetchBuf(url, onProgress) {
-  const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`);
-  const total = +r.headers.get("content-length") || 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
-  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onProgress?.(got, total); }
-  const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out.buffer;
+async function fetchBuf(url, onProgress, tries = 3) {
+  let lastErr;
+  for (let t = 1; t <= tries; t++) {
+    try {
+      const r = await fetch(url, { cache: t === 1 ? "default" : "reload" }); if (!r.ok) throw new Error(`HTTP ${r.status}: ${url.split("/").slice(-2).join("/")}`);
+      const total = +r.headers.get("content-length") || 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
+      for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onProgress?.(got, total); }
+      if (total && got !== total) throw new Error(`ダウンロードが途中で切れました（${got}/${total} bytes）`);
+      const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out.buffer;
+    } catch (e) { lastErr = e; if (t < tries) { onProgress?.(0, 0, `再試行 ${t}/${tries - 1}: ${e.message}`); await new Promise(r => setTimeout(r, 1500 * t)); } }
+  }
+  throw lastErr;
 }
+/* IndexedDB に無ければ取得して保存（完全に取れたものだけ保存）。壊れたキャッシュ（0 byte）は捨てる */
+export async function getModelFile(name, f, base, onProgress) {
+  const key = `${name}/${f}`; let b = null; try { b = await store.get(key); } catch { }
+  if (b && b.byteLength > 0) { onProgress(`${f} を端末内ストレージから読込`); return b; }
+  b = await fetchBuf(base + f, (got, total, msg) => onProgress(msg || `${f} をダウンロード中 ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`));
+  if (!b.byteLength) throw new Error(`${f} が空です（配置ミスか未 push）`);
+  try { await store.put(key, b); } catch (e) { onProgress(`${f}: 端末内に保存できず（容量不足？）。今回だけメモリで使用`); }
+  return b;
+}
+/* ONNX セッション作成。Worker（proxy）で失敗したらメインスレッドで再試行 */
+export async function createSession(buf, opts) {
+  try { return await ort.InferenceSession.create(buf, opts); }
+  catch (e) { if (ort.env.wasm.proxy) { console.warn("proxy 失敗 → メインスレッドで再試行", e); ort.env.wasm.proxy = false; try { return await ort.InferenceSession.create(buf, opts); } catch (e2) { throw friendly(e2); } } throw friendly(e); }
+}
+const friendly = e => { const m = String(e?.message || e); if (/memory|allocation|out of memory|RangeError/i.test(m)) return new Error("メモリ不足でモデルを展開できません。小さいモデル（jev_ja_30m / jevlet_33m）を選ぶか、他のタブを閉じてください。" + " [" + m.slice(0, 80) + "]"); if (/wasm|WebAssembly|fetch|Failed to load/i.test(m)) return new Error("実行エンジン（ONNX Runtime）の読み込みに失敗しました。通信状態を確認して「読み込む」をもう一度押してください。 [" + m.slice(0, 80) + "]"); return e; };
 
 export async function isStored(name) { const ks = new Set(await store.keys()); return FILES.every(f => ks.has(`${name}/${f}`)); }
 export async function removeStored(name) { for (const f of FILES) await store.del(`${name}/${f}`); }
@@ -109,22 +131,14 @@ export class JevJa {
 
   async load(onProgress = () => {}) {
     const bufs = {};
-    for (const f of FILES) {
-      const key = `${this.name}/${f}`;
-      let b = await store.get(key);
-      if (!b) {
-        b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} をダウンロード中 ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`));
-        await store.put(key, b);
-      } else onProgress(`${f} を端末内ストレージから読込`);
-      bufs[f] = b;
-    }
+    for (const f of FILES) bufs[f] = await getModelFile(this.name, f, this.base, onProgress);
     const txt = b => new TextDecoder().decode(b);
     this.cfg = JSON.parse(txt(bufs["config.json"]));
     this.tok = new PreTrainedTokenizer(JSON.parse(txt(bufs["tokenizer.json"])), JSON.parse(txt(bufs["tokenizer_config.json"])));
     const ep = (this.cfg.prefer_webgpu && navigator.gpu) ? ["webgpu", "wasm"] : ["wasm"];
     onProgress("ONNX セッションを作成中");
-    this.enc = await ort.InferenceSession.create(new Uint8Array(bufs["encoder.onnx"]), { executionProviders: ep });
-    this.head = await ort.InferenceSession.create(new Uint8Array(bufs["head.onnx"]), { executionProviders: ["wasm"] });
+    this.enc = await createSession(new Uint8Array(bufs["encoder.onnx"]), { executionProviders: ep });
+    this.head = await createSession(new Uint8Array(bufs["head.onnx"]), { executionProviders: ["wasm"] });
     this.headExport = new HeadJS(this.cfg.hidden, this.cfg.head?.hidden || 512, bufs["head.bin"], this.cfg.head?.version || 1);
     const custom = await store.get(`headjs:${this.name}`); this.headCustom = custom ? HeadJS.fromJSON(custom) : null;
     this.backend = ep[0]; this.vocab = this.tok.model?.vocab; this.kind = "jev_ja"; onProgress("");
@@ -237,23 +251,24 @@ export function metrics(rows, latencies) {
 export class CrossEncJev {
   constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "crossenc"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
   async load(onProgress = () => {}) {
-    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const getf = f => getModelFile(this.name, f, this.base, onProgress);
     const txt = b => new TextDecoder().decode(b);
     this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
     this.tok = new PreTrainedTokenizer(JSON.parse(txt(await getf("tokenizer.json"))), JSON.parse(txt(await getf("tokenizer_config.json"))));
     const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
-    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
+    onProgress("ONNX セッションを作成中"); this.sess = await createSession(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
     this.backend = "wasm"; this.padId = this.tok.model?.tokens_to_ids?.get(this.tok.pad_token) ?? 3; onProgress(""); return this;
   }
   ids(t) { return Array.from(this.tok(t, { add_special_tokens: false }).input_ids.data, Number); }
   async decide(state, questions, context, opts = {}) {
     const t0 = performance.now(); const full = (!context || !context.length) ? state : "[根拠]\n" + context.map(c => "- " + c).join("\n") + "\n[状況]\n" + state; const answers = []; const { bos_id: B, eos_id: E, max_length: ML } = this.cfg;
+    const C = this.cfg.cls_id ?? B, S = this.cfg.sep_id ?? E; const decisionFirst = this.cfg.pair_order === "decision_first";
     for (const [qi, q] of questions.entries()) { opts.onProgress?.(`質問 ${qi + 1}/${questions.length} を判定中（${this.name}）`);
-      const labels = JevJa.optionsOf(q); const cands = q.type === "noul" ? this.cfg.noul_options : labels; const a = this.ids(this.cfg.prompt.replace("{question}", q.instructions).replace("{state}", full));
-      const seqs = cands.map(c => { const b = this.ids(c); const A = a.slice(0, Math.max(8, ML - b.length - 4)); return [B, ...A, E, B, ...b, E]; }); const L = Math.max(...seqs.map(s => s.length));
+      const labels = JevJa.optionsOf(q); const cands = q.type === "noul" ? this.cfg.noul_options : labels; const render = c => this.cfg.prompt.replace("{type}", q.type).replace("{question}", q.instructions).replace("{option}", c).replace("{options}", cands.join(" ; ")).replace("{state}", full);
+      let seqs; if (decisionFirst) { const t = this.ids(full); seqs = cands.map(c => { const d = this.ids(render(c)).slice(0, 200); const T = t.slice(0, Math.max(8, ML - d.length - 4)); return [C, ...d, S, ...T, S]; }); } else { const a = this.ids(render("")); seqs = cands.map(c => { const b = this.ids(c); const A = a.slice(0, Math.max(8, ML - b.length - 4)); return [B, ...A, E, B, ...b, E]; }); } const L = Math.max(...seqs.map(s => s.length));
       const ids = new BigInt64Array(seqs.length * L), mask = new BigInt64Array(seqs.length * L); seqs.forEach((s, i) => s.forEach((x, j) => { ids[i * L + j] = BigInt(x); mask[i * L + j] = 1n; })); for (let i = 0; i < seqs.length; i++) for (let j = seqs[i].length; j < L; j++) ids[i * L + j] = BigInt(this.padId);
       const out = await this.sess.run({ input_ids: new ort.Tensor("int64", ids, [seqs.length, L]), attention_mask: new ort.Tensor("int64", mask, [seqs.length, L]) }); const z = Array.from(out.logits.data).filter((_, i) => out.logits.dims[1] ? i % out.logits.dims[1] === 0 : true);
-      const p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z));
+      let p; if (this.cfg.score === "sigmoid") { const T = opts.T || 1; const sg = z.map(v => 1 / (1 + Math.exp(-v / T))); const sum = sg.reduce((a, b) => a + b, 0) || 1; p = sg.map(v => v / sum); } else p = softmax(z, opts.T || 1); answers.push(mkAnswer(q, labels, p, z));
     }
     return { model: this.name, backend: this.backend, probability_kind: "native", latency_ms: performance.now() - t0, tokens: null, answers };
   }
@@ -283,7 +298,7 @@ export class OpenJevOnnx {
 export class LayaJev {
   constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "laya"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
   async load(onProgress = () => {}) {
-    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const getf = f => getModelFile(this.name, f, this.base, onProgress);
     const txt = b => new TextDecoder().decode(b);
     this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
     onProgress("tokenizer を準備中"); const tj = JSON.parse(txt(await getf("tokenizer.json")));
@@ -291,7 +306,7 @@ export class LayaJev {
     const fixMeta = pt => { if (!pt) return; if (pt.type === "Metaspace" && pt.add_prefix_space == null) pt.add_prefix_space = (pt.prepend_scheme ?? "always") !== "never"; (pt.pretokenizers || []).forEach(fixMeta); }; fixMeta(tj.pre_tokenizer);
     this.tok = new PreTrainedTokenizer(tj, JSON.parse(txt(await getf("tokenizer_config.json"))));
     const ext = []; for (const f of (this.cfg.external_data || [])) ext.push({ path: f, data: new Uint8Array(await getf(f)) });
-    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
+    onProgress("ONNX セッションを作成中"); this.sess = await createSession(new Uint8Array(await getf("model.onnx")), { executionProviders: ["wasm"], externalData: ext });
     this.backend = "wasm"; onProgress(""); return this;
   }
   ids(t, max) { const o = { add_special_tokens: false }; if (max) { o.truncation = true; o.max_length = max; } return Array.from(this.tok(t, o).input_ids.data, Number).slice(0, max || 1e9); }
@@ -325,12 +340,12 @@ export class LayaJev {
 export class JevletJev {
   constructor(entry) { this.name = entry.name; this.cfg = entry; this.kind = "jevlet"; this.probability_kind = "native"; this.base = new URL(`./models/${entry.name}/`, import.meta.url).href; }
   async load(onProgress = () => {}) {
-    const getf = async (f) => { const key = `${this.name}/${f}`; let b = await store.get(key); if (!b) { b = await fetchBuf(this.base + f, (got, total) => onProgress(`${f} ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`)); await store.put(key, b); } return b; };
+    const getf = f => getModelFile(this.name, f, this.base, onProgress);
     const txt = b => new TextDecoder().decode(b);
     this.cfg = { ...this.cfg, ...JSON.parse(txt(await getf("config.json"))) };
     this.tok = new PreTrainedTokenizer(JSON.parse(txt(await getf("tokenizer.json"))), JSON.parse(txt(await getf("tokenizer_config.json"))));
     const hb = new Float32Array(await getf("head.bin")); const w = this.cfg.hidden; this.Wq = hb.slice(0, w * w); this.Wk = hb.slice(w * w, 2 * w * w);
-    onProgress("ONNX セッションを作成中"); this.sess = await ort.InferenceSession.create(new Uint8Array(await getf("encoder.onnx")), { executionProviders: ["wasm"] }); this.backend = "wasm"; onProgress(""); return this;
+    onProgress("ONNX セッションを作成中"); this.sess = await createSession(new Uint8Array(await getf("encoder.onnx")), { executionProviders: ["wasm"] }); this.backend = "wasm"; onProgress(""); return this;
   }
   ids(t) { return Array.from(this.tok(t, { add_special_tokens: false }).input_ids.data, Number); }
   pack(state, questions) {

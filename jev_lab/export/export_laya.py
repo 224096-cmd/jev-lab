@@ -103,16 +103,18 @@ def quantize_embeddings(mo, min_rows=20000):
         print("embedding を int8 化:", t.name, list(t.dims))
 
 
-def quant_stage(out, no_int8, chunk_mb):
-    """fp32 ONNX → int8 → 分割。torch を読まない別プロセスで実行してメモリを節約する"""
+def quant_stage(out, no_int8, chunk_mb, int4=False, prune=False):
+    """fp32 ONNX → （語彙の間引き）→ 埋め込み int8 → MatMul int8 / 4bit → 分割。torch を読まない別プロセスで実行してメモリを節約する"""
+    from .onnx_utils import normalize_opset, prune_embeddings, quantize_embeddings, quantize_matmul_4bit, chunk_external
     tmp = os.path.join(out, "model_fp32.onnx"); path = os.path.join(out, "model.onnx")
-    mo = onnx.load(tmp, load_external_data=True)
-    if not any(op.domain in ("", "ai.onnx") for op in mo.opset_import): mo.opset_import.append(onnx.helper.make_opsetid("", 17))
-    for op in mo.opset_import:
-        if op.domain == "ai.onnx": op.domain = ""
-    if not no_int8: quantize_embeddings(mo)      # 25.6 万語彙 × 768 の埋め込み（fp32 786 MB）を先に int8 化してメモリを節約
-    onnx.save_model(mo, tmp); del mo; import gc; gc.collect()
+    mo = onnx.load(tmp, load_external_data=True); normalize_opset(mo)
+    if prune: keep = json.load(open(os.path.join(out, "_keep.json"))); prune_embeddings(mo, keep["ids"], keep["unk"]); os.remove(os.path.join(out, "_keep.json"))
+    if not no_int8: quantize_embeddings(mo)
+    onnx.save_model(mo, tmp, save_as_external_data=True, all_tensors_to_one_file=True, location="model_fp32.onnx_data"); del mo; import gc; gc.collect()
     if no_int8: os.replace(tmp, path)
+    elif int4:
+        quantize_matmul_4bit(tmp, path)
+        if not os.environ.get("KEEP_FP32"): os.remove(tmp)
     else:
         from onnxruntime.quantization import quantize_dynamic, QuantType
         try: quantize_dynamic(tmp, path, weight_type=QuantType.QInt8)
@@ -121,15 +123,18 @@ def quant_stage(out, no_int8, chunk_mb):
             from onnxruntime.quantization.shape_inference import quant_pre_process
             pre = tmp + ".pre.onnx"; quant_pre_process(tmp, pre, skip_symbolic_shape=True); quantize_dynamic(pre, path, weight_type=QuantType.QInt8); os.remove(pre)
         os.remove(tmp)
+    if os.path.exists(tmp + "_data") and not os.environ.get("KEEP_FP32"): os.remove(tmp + "_data")
     files = chunk_external(path, out, chunk_mb)
+    for f in (path + ".data", path + "_data"):
+        if os.path.exists(f): os.remove(f)
     json.dump(files, open(os.path.join(out, "_files.json"), "w"))
 
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--hf", default="convaiinnovations/laya-multilingual"); ap.add_argument("--subfolder", default=None)
-    ap.add_argument("--name", required=True); ap.add_argument("--chunk-mb", type=int, default=90); ap.add_argument("--no-int8", action="store_true"); ap.add_argument("--stage", default="all", choices=["all", "quant"])
+    ap.add_argument("--name", required=True); ap.add_argument("--chunk-mb", type=int, default=90); ap.add_argument("--no-int8", action="store_true"); ap.add_argument("--int4", action="store_true"); ap.add_argument("--prune-vocab", nargs="*", default=None); ap.add_argument("--stage", default="all", choices=["all", "quant"])
     a = ap.parse_args(); out = os.path.join(DOCS, a.name); os.makedirs(out, exist_ok=True)
-    if a.stage == "quant": return quant_stage(out, a.no_int8, a.chunk_mb)
+    if a.stage == "quant": return quant_stage(out, a.no_int8, a.chunk_mb, a.int4, a.prune_vocab is not None)
     os.environ.setdefault("USE_TF", "0")
     from laya.agent import Agent
     from laya.common import build_sequence, collate_items, QTYPES
@@ -156,9 +161,13 @@ def main():
                       dynamic_axes={"input_ids": {0: "B", 1: "L"}, "attention_mask": {0: "B", 1: "L"}, "marker_pos": {0: "B", 1: "K"}, "marker_mask": {0: "B", 1: "K"}, "qtype": {0: "B"}, "logits": {0: "B", 1: "K"}},
                       opset_version=17, dynamo=False)
     # 量子化は別プロセス（torch を持たない）で行い、メモリ不足で落ちるのを避ける
+    if a.prune_vocab is not None:
+        from .onnx_utils import vocab_from_corpus, common_ids
+        keep, info = vocab_from_corpus(tok, a.prune_vocab, always=common_ids(tok)); keep |= set(b["input_ids"][0].tolist()); print("語彙:", info)
+        json.dump({"ids": sorted(keep), "unk": tok.unk_token_id if tok.unk_token_id is not None else tok.pad_token_id}, open(os.path.join(out, "_keep.json"), "w"))
     np.save(os.path.join(out, "_zpt.npy"), z_pt); del m, ag; import gc; gc.collect()
     import subprocess, sys
-    r = subprocess.run([sys.executable, "-m", "jev_lab.export.export_laya", "--name", a.name, "--stage", "quant", "--chunk-mb", str(a.chunk_mb)] + (["--no-int8"] if a.no_int8 else []))
+    r = subprocess.run([sys.executable, "-m", "jev_lab.export.export_laya", "--name", a.name, "--stage", "quant", "--chunk-mb", str(a.chunk_mb)] + (["--no-int8"] if a.no_int8 else []) + (["--int4"] if a.int4 else []) + (["--prune-vocab"] if a.prune_vocab is not None else []))
     if r.returncode != 0: raise SystemExit("量子化ステージが失敗しました（メモリ不足の可能性。空きメモリ 6 GB 以上で再実行）")
     path = os.path.join(out, "model.onnx"); files = json.load(open(os.path.join(out, "_files.json"))); os.remove(os.path.join(out, "_files.json"))
 
@@ -174,7 +183,7 @@ def main():
     tc.pop("extra_special_tokens", None); json.dump(tc, open(os.path.join(out, "tokenizer_config.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     sizes = {f: os.path.getsize(os.path.join(out, f)) for f in files}
     c = {"name": a.name, "kind": "laya", "hf_id": a.hf + (("/" + a.subfolder) if a.subfolder else ""), "backbone": cfg.get("encoder"), "max_len": cfg.get("max_len", 1024), "head_max_len": cfg.get("head_max_len", 256),
-         "temperature": cfg.get("temperature", [1, 1, 1]), "temperature_by_options": cfg.get("temperature_by_options", {}), "int8": not a.no_int8, "external_data": files,
+         "temperature": cfg.get("temperature", [1, 1, 1]), "temperature_by_options": cfg.get("temperature_by_options", {}), "int8": not a.no_int8, "int4": a.int4, "pruned_vocab": a.prune_vocab is not None, "external_data": files,
          "size_mb": round((os.path.getsize(path) + sum(sizes.values())) / 1e6, 1), "onnx_vs_pt_maxdiff": float(np.abs(sm(z) - sm(z_pt)).max()),
          "cls_id": tok.cls_token_id, "sep_id": tok.sep_token_id, "mask_id": tok.mask_token_id, "pad_id": tok.pad_token_id, "language": "multilingual", "license": "Apache-2.0",
          "note": "Laya（Convai Innovations）。[MASK] 位置の 1 logit を選択肢ごとに読む Jev 級モデル。100+ 言語、context 1024。PC ブラウザ向け"}

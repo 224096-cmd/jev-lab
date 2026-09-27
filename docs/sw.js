@@ -1,6 +1,6 @@
 /* アプリ本体・CDN ライブラリ・読み込んだモデルをキャッシュし、機内モードでも play.html が動くようにする */
-const APP = "jev-lab-app-v10", LIB = "jev-lab-lib-v10", MODELS = "jev-lab-models-v10";
-const SHELL = ["./", "./index.html", "./play.html", "./jev.js", "./app.js", "./templates.js", "./osint.js", "./tools.js", "./recon.js", "./quota.js", "./bench/index.json", "./bench/jevbench_ja_small.jsonl", "./bench/survey_example.jsonl", "./theory.html", "./models/registry.json", "./bench/sample_ja.jsonl", "./style.css", "./manifest.json", "./icon.svg", "./models/index.json", "./results/index.json"];
+const APP = "jev-lab-app-v12", LIB = "jev-lab-lib-v12", MODELS = "jev-lab-models-v12";
+const SHELL = ["./", "./index.html", "./play.html", "./jev.js", "./app.js", "./templates.js", "./osint.js", "./tools.js", "./recon.js", "./quota.js", "./connect.js", "./suggest.js", "./bench/index.json", "./bench/jevbench_ja_small.jsonl", "./bench/survey_example.jsonl", "./theory.html", "./models/registry.json", "./bench/sample_ja.jsonl", "./style.css", "./manifest.json", "./icon.svg", "./models/index.json", "./results/index.json"];
 // 端末内推論に必要な CDN ファイル（play.html が実際に読む 4 つ）。install 時に先読みしておく
 const CDN = [
   "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js",

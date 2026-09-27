@@ -1,0 +1,157 @@
+{
+ "data": "docs/bench/jevbench_ja_small.jsonl",
+ "results": [
+  {
+   "n_questions": 390,
+   "accuracy": 0.4205128205128205,
+   "brier": 0.6799302863164316,
+   "ece": 0.16312940422478375,
+   "ece_table": [
+    {
+     "bin": "0.0-0.1",
+     "n": 0
+    },
+    {
+     "bin": "0.1-0.2",
+     "n": 3,
+     "confidence": 0.17851713570472874,
+     "accuracy": 0.0
+    },
+    {
+     "bin": "0.2-0.3",
+     "n": 42,
+     "confidence": 0.26194004722126896,
+     "accuracy": 0.11904761904761904
+    },
+    {
+     "bin": "0.3-0.4",
+     "n": 26,
+     "confidence": 0.355536387324262,
+     "accuracy": 0.34615384615384615
+    },
+    {
+     "bin": "0.4-0.5",
+     "n": 63,
+     "confidence": 0.4543582441220743,
+     "accuracy": 0.31746031746031744
+    },
+    {
+     "bin": "0.5-0.6",
+     "n": 80,
+     "confidence": 0.5439023289241806,
+     "accuracy": 0.4625
+    },
+    {
+     "bin": "0.6-0.7",
+     "n": 56,
+     "confidence": 0.6489362139662067,
+     "accuracy": 0.42857142857142855
+    },
+    {
+     "bin": "0.7-0.8",
+     "n": 53,
+     "confidence": 0.7474266095741,
+     "accuracy": 0.5660377358490566
+    },
+    {
+     "bin": "0.8-0.9",
+     "n": 44,
+     "confidence": 0.8464911279917952,
+     "accuracy": 0.4772727272727273
+    },
+    {
+     "bin": "0.9-1.0",
+     "n": 23,
+     "confidence": 0.9349167205229733,
+     "accuracy": 0.782608695652174
+    }
+   ],
+   "latency_p50_ms": 233.12549049995823,
+   "latency_p95_ms": 1036.608930600016,
+   "invalid_rate": 0.0,
+   "per_family": {
+    "livedoor_topic": {
+     "n": 15,
+     "accuracy": 0.13333333333333333
+    },
+    "livedoor_topic_ood": {
+     "n": 15,
+     "accuracy": 0.06666666666666667
+    },
+    "jnli": {
+     "n": 30,
+     "accuracy": 0.4
+    },
+    "jnli_ood": {
+     "n": 30,
+     "accuracy": 0.43333333333333335
+    },
+    "jsts": {
+     "n": 15,
+     "accuracy": 0.2,
+     "mae": 1.2497166333338408
+    },
+    "jsts_ood": {
+     "n": 15,
+     "accuracy": 0.06666666666666667,
+     "mae": 0.8842303507413086
+    },
+    "jcqa": {
+     "n": 15,
+     "accuracy": 0.4666666666666667
+    },
+    "jcqa_ood": {
+     "n": 15,
+     "accuracy": 0.6
+    },
+    "wrime_sentiment": {
+     "n": 30,
+     "accuracy": 0.6666666666666666,
+     "mae": 0.7428753039391076
+    },
+    "wrime_sentiment_ood": {
+     "n": 30,
+     "accuracy": 0.3,
+     "mae": 0.8542717230361554
+    },
+    "jcola": {
+     "n": 15,
+     "accuracy": 0.6
+    },
+    "jcola_ood": {
+     "n": 15,
+     "accuracy": 0.8
+    },
+    "claim_check_ja": {
+     "n": 30,
+     "accuracy": 0.26666666666666666
+    },
+    "claim_check_ja_ood": {
+     "n": 30,
+     "accuracy": 0.4
+    },
+    "fever_en": {
+     "n": 30,
+     "accuracy": 0.43333333333333335
+    },
+    "fever_en_ood": {
+     "n": 30,
+     "accuracy": 0.36666666666666664
+    },
+    "tweet_sentiment_en": {
+     "n": 15,
+     "accuracy": 0.6,
+     "mae": 0.39660487046576354
+    },
+    "tweet_sentiment_en_ood": {
+     "n": 15,
+     "accuracy": 0.8666666666666667,
+     "mae": 0.21252751025120437
+    }
+   },
+   "model": "openjev_base",
+   "probability_kind": "native",
+   "use_context": true
+  }
+ ]
+}

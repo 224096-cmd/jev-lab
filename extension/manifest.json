@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "JEV Lab — 判断アシスタント",
+  "version": "0.9.0",
+  "description": "どのサイトでも、選択した文章を右クリック→「JEV で判断」。サイドパネルに JEV Lab（端末内・生成しない判断モデル）を開いて仕分ける。",
+  "permissions": ["contextMenus", "sidePanel", "storage", "activeTab", "scripting"],
+  "action": { "default_title": "JEV Lab を開く" },
+  "side_panel": { "default_path": "panel.html" },
+  "background": { "service_worker": "background.js" },
+  "commands": { "judge-selection": { "suggested_key": { "default": "Alt+J" }, "description": "選択した文章を JEV で判断" } },
+  "icons": { "128": "icon.png" }
+}

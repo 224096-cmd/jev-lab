@@ -50,6 +50,8 @@
 <table><tr><th>モデル</th><th>形</th><th>大きさ</th><th>言語</th><th>どこで動く</th></tr>
 <tr><td>jev_ja_30m（自作）</td><td>[STATE][Q][OPT] 1 系列 + MLP ヘッド v2</td><td>37M / 47MB</td><td>ja</td><td>スマホ・PC ブラウザ、端末内学習可</td></tr>
 <tr><td>argos1111/modernbert-ja-310m-jev</td><td>cross-encoder（質問+状況 × 候補）</td><td>310M / 316MB</td><td>ja</td><td>PC ブラウザ・PC</td></tr>
+<tr><td>sshalimov04/open-jev-base（mmBERT-small、Jev 1.13 蒸留）</td><td>決定文＋本文の cross-encoder、sigmoid を K 候補で正規化</td><td>140M / 58MB（語彙間引き int8）</td><td>en/ru（多言語）</td><td>スマホ・PC ブラウザ・PC</td></tr>
+<tr><td>laya-multilingual 4bit</td><td>Laya 形</td><td>322M / 92MB（語彙間引き＋4bit）</td><td>100+</td><td>PC ブラウザ</td></tr>
 <tr><td>NAME0x0/Jevlet v6（bge-small）</td><td>[STATE]｜[QUESTION] q [OPTION]… [DECIDE]、pointer head</td><td>33.5M / 36MB</td><td>en</td><td>スマホ・PC ブラウザ・PC</td></tr>
 <tr><td>convaiinnovations/laya-multilingual（Laya、HF ❤3.8k）</td><td>[MASK] 位置の 1 logit を選択肢ごとに読む</td><td>322M / 323MB</td><td>100+（ja 含む）</td><td>PC ブラウザ・PC（pip install laya）</td></tr>
 <tr><td>open-jev-deberta-v3-large（Kotoba）</td><td>open-jev 形</td><td>435M / 480MB</td><td>en</td><td>PC ブラウザ（HF から）・PC</td></tr>

@@ -107,6 +107,17 @@ models:
     max_length: 512
     device: auto
     language: ja
+  openjev_base:                                   # open-jev-base（mmBERT-small 140M、Jev 1.13 を教師に蒸留、en/ru、MIT）。決定文が先・本文が後、sigmoid を K で正規化
+    adapter: crossenc_hf
+    hf_id: sshalimov04/open-jev-base
+    subfolder: student
+    prompt: "A: {type} | Q: {question} | option: {option} | options: {options}"
+    pair_order: decision_first
+    score: sigmoid
+    noul_options: ["yes", "no"]
+    max_length: 512
+    device: auto
+    language: multi
   tiny_jev_0_6b:                                  # Qwen3-0.6B ベース、英語（Apache-2.0）
     adapter: tiny_jev
     hf_id: lostargon/Tiny-Jev

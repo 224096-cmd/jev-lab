@@ -1,0 +1,10 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#f6f7f9;font:14px system-ui}iframe{border:0;width:100%;height:calc(100% - 34px)}.bar{height:34px;display:flex;align-items:center;gap:8px;padding:0 8px;border-bottom:1px solid #d9dde3;background:#fff}.bar input{flex:1;font:12px monospace;border:1px solid #d9dde3;border-radius:6px;padding:4px}</style></head>
+<body><div class="bar"><b>JEV Lab</b><input id="app" title="JEV Lab の URL"><button id="save">保存</button><button id="home">ホーム</button></div><iframe id="f" allow="clipboard-write"></iframe>
+<script>
+const DEFAULT_APP = "https://224096-cmd.github.io/jev-lab/play.html"; const f = document.getElementById("f");
+async function load() { const { app } = await chrome.storage.sync.get({ app: DEFAULT_APP }); document.getElementById("app").value = app; const { pending } = await chrome.storage.session.get("pending"); f.src = pending || app; if (pending) chrome.storage.session.remove("pending"); }
+document.getElementById("save").onclick = async () => { await chrome.storage.sync.set({ app: document.getElementById("app").value.trim() }); load(); };
+document.getElementById("home").onclick = () => chrome.storage.sync.get({ app: DEFAULT_APP }).then(({ app }) => f.src = app);
+chrome.storage.session.onChanged.addListener(ch => { if (ch.pending?.newValue) { f.src = ch.pending.newValue; chrome.storage.session.remove("pending"); } });
+load();
+</script></body></html>

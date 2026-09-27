@@ -1,0 +1,26 @@
+{
+  "name": "openjev_base_60m",
+  "kind": "crossenc",
+  "hf_id": "sshalimov04/open-jev-base/student",
+  "prompt": "A: {type} | Q: {question} | option: {option} | options: {options}",
+  "pair_order": "decision_first",
+  "score": "sigmoid",
+  "noul_options": [
+    "true",
+    "false"
+  ],
+  "max_length": 512,
+  "int8": true,
+  "int4": false,
+  "pruned_vocab": true,
+  "external_data": [
+    "model.onnx_data_0"
+  ],
+  "size_mb": 92.2,
+  "onnx_vs_pt_maxdiff": 0.29558026790618896,
+  "cls_id": 2,
+  "sep_id": 1,
+  "eos_id": 1,
+  "bos_id": 2,
+  "pad_id": 0
+}

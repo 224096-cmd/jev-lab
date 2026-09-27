@@ -1,0 +1,29 @@
+{
+  "name": "laya_multi_q4",
+  "kind": "laya",
+  "hf_id": "convaiinnovations/laya-multilingual",
+  "backbone": "jhu-clsp/mmBERT-base",
+  "max_len": 1024,
+  "head_max_len": 256,
+  "temperature": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "temperature_by_options": {},
+  "int8": true,
+  "int4": true,
+  "pruned_vocab": true,
+  "external_data": [
+    "model.onnx_data_0"
+  ],
+  "size_mb": 91.5,
+  "onnx_vs_pt_maxdiff": 0.008041320368647575,
+  "cls_id": 2,
+  "sep_id": 1,
+  "mask_id": 4,
+  "pad_id": 0,
+  "language": "multilingual",
+  "license": "Apache-2.0",
+  "note": "Laya（Convai Innovations）。[MASK] 位置の 1 logit を選択肢ごとに読む Jev 級モデル。100+ 言語、context 1024。PC ブラウザ向け"
+}
