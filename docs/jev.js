@@ -35,10 +35,10 @@ async function fetchBuf(url, onProgress, tries = 3) {
   for (let t = 1; t <= tries; t++) {
     try {
       const r = await fetch(url, { cache: t === 1 ? "default" : "reload" }); if (!r.ok) throw new Error(`HTTP ${r.status}: ${url.split("/").slice(-2).join("/")}`);
-      /* GitHub Pages は gzip で返すので Content-Length は圧縮後のサイズになり、受信バイト数と一致しない。長さでは検証せず、空でないこと＋中身（JSON / ONNX）で検証する（v3.1 修正） */
-      const total = 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
+      /* GitHub Pages は gzip で返すので Content-Length は圧縮後のサイズ。長さ検証は非圧縮のときだけ行う（v3.1 修正：ここで全モデルが「途中で切れた」扱いになっていた） */
+      const enc = (r.headers.get("content-encoding") || "").toLowerCase(); const total = (!enc || enc === "identity") ? (+r.headers.get("content-length") || 0) : 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
       for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; onProgress?.(got, total); }
-      if (!got) throw new Error("0 byte の応答");
+      if (total && got < total) throw new Error(`ダウンロードが途中で切れました（${got}/${total} bytes）`);
       const out = new Uint8Array(got); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out.buffer;
     } catch (e) { lastErr = e; if (t < tries) { onProgress?.(0, 0, `再試行 ${t}/${tries - 1}: ${e.message}`); await new Promise(r => setTimeout(r, 1500 * t)); } }
   }
@@ -50,8 +50,6 @@ export async function getModelFile(name, f, base, onProgress) {
   if (b && b.byteLength > 0) { onProgress(`${f} を端末内ストレージから読込`); return b; }
   b = await fetchBuf(base + f, (got, total, msg) => onProgress(msg || `${f} をダウンロード中 ${(got / 1e6).toFixed(1)}${total ? " / " + (total / 1e6).toFixed(1) : ""} MB`));
   if (!b.byteLength) throw new Error(`${f} が空です（配置ミスか未 push）`);
-  if (/\.json$/.test(f)) { try { JSON.parse(new TextDecoder().decode(b)); } catch { throw new Error(`${f} が壊れています（JSON として読めない。途中で切れた可能性、再試行してください）`); } }
-  if (/\.onnx$/.test(f) && b.byteLength < 64) throw new Error(`${f} が小さすぎます（${b.byteLength} bytes）`);
   try { await store.put(key, b); } catch (e) { onProgress(`${f}: 端末内に保存できず（容量不足？）。今回だけメモリで使用`); }
   return b;
 }
