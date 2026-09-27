@@ -1,5 +1,5 @@
 /* アプリ本体・CDN ライブラリ・読み込んだモデルをキャッシュし、機内モードでも play.html が動くようにする */
-const APP = "jev-lab-app-v18", LIB = "jev-lab-lib-v18", MODELS = "jev-lab-models-v18";
+const APP = "jev-lab-app-v19", LIB = "jev-lab-lib-v19", MODELS = "jev-lab-models-v19";
 const SHELL = ["./", "./index.html", "./play.html", "./jev.js", "./app.js", "./lab.js", "./ui.js", "./presets.js", "./extras.js", "./sources_more.js", "./params.js", "./app.css", "./templates.js", "./osint.js", "./tools.js", "./recon.js", "./quota.js", "./connect.js", "./suggest.js", "./bench/index.json", "./bench/jevbench_ja_small.jsonl", "./bench/survey_example.jsonl", "./theory.html", "./models/registry.json", "./bench/sample_ja.jsonl", "./style.css", "./manifest.json", "./icon.svg", "./models/index.json", "./results/index.json"];
 // 端末内推論に必要な CDN ファイル（play.html が実際に読む 4 つ）。install 時に先読みしておく
 const CDN = [
@@ -27,11 +27,11 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   const u = new URL(e.request.url);
-  const isModel = u.pathname.includes("/models/") && !u.pathname.endsWith("index.json");
+  const isModel = u.pathname.includes("/models/") && !u.pathname.endsWith("index.json") && !u.pathname.endsWith("registry.json");
   const isCdn = u.hostname === "cdn.jsdelivr.net";
-  if (isModel || isCdn) {   // 大きく・変わらないもの: cache-first
-    const name = isModel ? MODELS : LIB;
-    e.respondWith(caches.open(name).then(async c => (await c.match(e.request)) || fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; })));
+  if (isModel) return;      // モデルファイルはアプリが IndexedDB に保存する（Cache API と二重に持たない。v3.1 修正）
+  if (isCdn) {              // ライブラリ: cache-first
+    e.respondWith(caches.open(LIB).then(async c => (await c.match(e.request)) || fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; })));
     return;
   }
   // アプリ本体・結果 JSON: network-first、失敗時 cache
@@ -40,10 +40,7 @@ self.addEventListener("fetch", e => {
 // ページからの問い合わせ: 指定モデルがオフライン実行可能か（CDN 4 点 + モデル 4 点が全部キャッシュ済みか）
 self.addEventListener("message", async e => {
   if (e.data?.type !== "offline-check") return;
-  const base = new URL(`./models/${e.data.model}/`, self.registration.scope).href;
-  const need = [...CDN.slice(0, 4), ...["encoder.onnx", "head.onnx", "tokenizer.json", "config.json"].map(f => base + f)];
-  const lib = await caches.open(LIB), mod = await caches.open(MODELS);
-  const missing = [];
-  for (const u of need) if (!(await lib.match(u)) && !(await mod.match(u))) missing.push(u.split("/").pop());
+  const need = CDN.slice(0, 4); const lib = await caches.open(LIB); const missing = [];
+  for (const u of need) if (!(await lib.match(u))) missing.push(u.split("/").pop());
   e.source.postMessage({ type: "offline-status", model: e.data.model, ready: missing.length === 0, missing });
 });
